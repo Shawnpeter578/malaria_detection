@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ParaScope Field Client v1.2</title>
+    <style>
+        :root {
+            --bg: #f4f4f5;
+            --surface: #ffffff;
+            --border: #d4d4d8;
+            --text: #18181b;
+            --accent: #2563eb;
+        }
+
+        body {
+            font-family: ui-sans-serif, system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 10px;
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        header {
+            border-bottom: 2px solid var(--text);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: -0.5px;
+        }
+
+        .telemetry {
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            font-size: 11px;
+            color: #52525b;
+            text-align: right;
+        }
+
+        fieldset {
+            border: 1px solid var(--border);
+            background: var(--surface);
+            margin-bottom: 15px;
+            padding: 12px;
+            border-radius: 4px;
+        }
+
+        legend {
+            font-weight: bold;
+            background: var(--text);
+            color: white;
+            padding: 2px 8px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 500;
+            font-size: 12px;
+            color: #3f3f46;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            margin-bottom: 10px;
+            font-family: inherit;
+        }
+
+        input:focus {
+            outline: 1px solid var(--accent);
+            border-color: var(--accent);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .chip-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .chip {
+            padding: 4px 10px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            font-size: 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .chip.active {
+            background: var(--text);
+            color: white;
+            border-color: var(--text);
+        }
+
+        input[type="file"] {
+            border: 1px dashed var(--border);
+            padding: 15px;
+            background: var(--bg);
+            cursor: pointer;
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 12px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: inherit;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        button:disabled {
+            background: #a1a1aa;
+            cursor: not-allowed;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .result-box {
+            border: 1px solid var(--text);
+            background: #fafafa;
+            padding: 15px;
+            font-family: ui-monospace, monospace;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px dotted var(--border);
+            padding: 6px 0;
+        }
+
+        .pos {
+            color: #dc2626;
+            font-weight: bold;
+        }
+
+        .neg {
+            color: #16a34a;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>ParaScope [Node]</h1>
+            <div class="telemetry">
+                STATUS: <span style="color:#16a34a">ONLINE</span><br>
+                LATENCY: <span id="pingVal">12ms</span>
+            </div>
+        </header>
+
+        <div id="formView">
+            <fieldset>
+                <legend>Patient Demographics</legend>
+                <label>Legal Name</label>
+                <input type="text" id="pName" placeholder="Enter name">
+                <div class="grid-2">
+                    <div><label>Contact (Phone)</label><input type="number" id="pPhone" placeholder="10-digit"></div>
+                    <div><label>Zone / Village</label><input type="text" id="pLoc" placeholder="Location"></div>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Clinical Vitals</legend>
+                <div class="grid-2">
+                    <div>
+                        <label>Core Temp (°F)</label>
+                        <input type="number" id="pTemp" placeholder="101.5">
+                    </div>
+                    <div>
+                        <label>Blood O2 (SpO2 %)</label>
+                        <input type="number" id="pSpo2" placeholder="98">
+                    </div>
+                </div>
+                <label style="margin-top: 5px;">Symptom Flags</label>
+                <div class="chip-group">
+                    <div class="chip" onclick="this.classList.toggle('active')">Fever >48h</div>
+                    <div class="chip" onclick="this.classList.toggle('active')">Chills</div>
+                    <div class="chip" onclick="this.classList.toggle('active')">Nausea</div>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Diagnostic Payload</legend>
+                <input type="file" id="pImage" accept="image/*">
+            </fieldset>
+
+            <button id="submitBtn" onclick="submitPayload()">EXECUTE INFERENCE</button>
+        </div>
+
+        <div id="resultView" class="hidden">
+            <fieldset class="result-box">
+                <legend>Inference Complete</legend>
+                <div class="result-row"><span>Patient UUID:</span> <span id="resId"></span></div>
+                <div class="result-row"><span>Inference Time:</span> <span id="resTime"></span></div>
+                <div class="result-row"><span>AI Classification:</span> <span id="resClass"
+                        style="text-transform: uppercase;"></span></div>
+                <div class="result-row"><span>Confidence:</span> <span id="resConf"></span></div>
+                <div class="result-row"><span>Detected Strain:</span> <span id="resStrain"></span></div>
+            </fieldset>
+            <button onclick="resetClient()" style="background: var(--text); margin-top:10px;">ACKNOWLEDGE &
+                RESET</button>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api/malaria';
+
+        setInterval(() => { document.getElementById('pingVal').innerText = Math.floor(Math.random() * 5 + 10) + 'ms'; }, 2000);
+
+        async function submitPayload() {
+            const name = document.getElementById('pName').value;
+            const phone = document.getElementById('pPhone').value;
+            const location = document.getElementById('pLoc').value;
+            const temp = document.getElementById('pTemp').value;
+            const spo2 = document.getElementById('pSpo2').value;
+            const file = document.getElementById('pImage').files[0];
+            const btn = document.getElementById('submitBtn');
+
+            if (!name || !temp || !spo2 || !file) { alert("ERR_MISSING_DATA: Name, Temp, SpO2, and Image required."); return; }
+
+            btn.disabled = true;
+            btn.innerText = "PROCESSING (TX/RX)...";
+            const startTime = performance.now();
+
+            try {
+                // Tx 1: Vitals (Now sending both)
+                const pRes = await fetch(`${API_URL}/spo2`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, phone, location, temperature: parseFloat(temp), spo2_reading: parseInt(spo2) })
+                });
+                if (!pRes.ok) throw new Error("ERR_DB_WRITE");
+                const pData = await pRes.json();
+
+                // Tx 2: Image Payload
+                const fd = new FormData();
+                fd.append('smearImage', file);
+                fd.append('patient_id', pData.patient.id);
+
+                const tRes = await fetch(`${API_URL}/test`, { method: 'POST', body: fd });
+                if (!tRes.ok) throw new Error("ERR_INFERENCE_FAIL");
+                const tData = await tRes.json();
+
+                const endTime = performance.now();
+
+                // Bind UI
+                document.getElementById('formView').classList.add('hidden');
+                document.getElementById('resultView').classList.remove('hidden');
+                document.getElementById('resId').innerText = pData.patient.id.substring(0, 8);
+                document.getElementById('resTime').innerText = (endTime - startTime).toFixed(0) + ' ms';
+
+                const classEl = document.getElementById('resClass');
+                classEl.innerText = tData.result;
+                classEl.className = tData.result === 'positive' ? 'pos' : 'neg';
+
+                document.getElementById('resConf').innerText = tData.confidence + '%';
+                document.getElementById('resStrain').innerText = tData.species || 'N/A';
+
+            } catch (err) { alert(err.message); }
+            finally { btn.disabled = false; btn.innerText = "EXECUTE INFERENCE"; }
+        }
+
+        function resetClient() {
+            document.getElementById('pName').value = '';
+            document.getElementById('pPhone').value = '';
+            document.getElementById('pTemp').value = '';
+            document.getElementById('pSpo2').value = '';
+            document.getElementById('pImage').value = '';
+            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+            document.getElementById('resultView').classList.add('hidden');
+            document.getElementById('formView').classList.remove('hidden');
+        }
+    </script>
+</body>
+
+</html>

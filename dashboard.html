@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ParaScope Admin // Node.js</title>
+    <style>
+        :root {
+            --bg: #09090b;
+            --surface: #18181b;
+            --text: #e4e4e7;
+            --accent: #3b82f6;
+            --danger: #ef4444;
+            --border: #27272a;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            margin: 0;
+            padding: 20px;
+            font-size: 13px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: normal;
+        }
+
+        .pulse {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+            margin-right: 5px;
+            box-shadow: 0 0 8px #22c55e;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .kpi {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 15px;
+            border-left: 3px solid var(--text);
+        }
+
+        .kpi.warn {
+            border-left-color: var(--danger);
+        }
+
+        .kpi span {
+            display: block;
+            color: #a1a1aa;
+            font-size: 10px;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .kpi strong {
+            font-size: 1.5rem;
+            font-weight: normal;
+            font-variant-numeric: tabular-nums;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--surface);
+            border: 1px solid var(--border);
+        }
+
+        th,
+        td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            color: #a1a1aa;
+            font-size: 10px;
+            text-transform: uppercase;
+            background: #27272a;
+        }
+
+        td {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .badge {
+            padding: 2px 6px;
+            border-radius: 2px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .badge.pos {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            border: 1px solid #ef4444;
+        }
+
+        .badge.neg {
+            background: rgba(34, 197, 94, 0.2);
+            color: #86efac;
+            border: 1px solid #22c55e;
+        }
+
+        .img-preview {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border: 1px solid #52525b;
+            filter: grayscale(100%);
+        }
+
+        .img-preview:hover {
+            filter: none;
+            transform: scale(3);
+            position: absolute;
+            z-index: 100;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <h1>ParaScope // District Hub</h1>
+        <div><span class="pulse"></span> DAEMON SYNC: ACTIVE (5000ms)</div>
+    </div>
+
+    <div class="kpi-grid">
+        <div class="kpi"><span>Data Rows (Patients)</span><strong id="kpi-pat">--</strong></div>
+        <div class="kpi"><span>Inferences Executed</span><strong id="kpi-inf">--</strong></div>
+        <div class="kpi warn"><span>Positive Detections</span><strong id="kpi-pos"
+                style="color:var(--danger)">--</strong></div>
+        <div class="kpi warn"><span>Positivity Rate</span><strong id="kpi-rate">--</strong></div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>TS (UTC)</th>
+                <th>UUID</th>
+                <th>Image</th>
+                <th>Loc/Node</th>
+                <th>Vitals (Temp)</th>
+                <th>Classification</th>
+                <th>Conf</th>
+            </tr>
+        </thead>
+        <tbody id="logTable">
+            <tr>
+                <td colspan="7" style="text-align: center; color: #71717a;">INITIATING DB READ...</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <script>
+        const API_URL = 'http://localhost:3000';
+        let abortController = null;
+
+        async function pollDatabase() {
+            // Cancel previous fetch if it's hanging (Pro-level memory management)
+            if (abortController) abortController.abort();
+            abortController = new AbortController();
+
+            try {
+                const res = await fetch(`${API_URL}/api/malaria/dashboard`, { signal: abortController.signal });
+                const data = await res.json();
+
+                // Update KPIs
+                document.getElementById('kpi-pat').innerText = data.total_patients;
+                document.getElementById('kpi-inf').innerText = data.total_tests;
+                document.getElementById('kpi-pos').innerText = data.positive_cases;
+                document.getElementById('kpi-rate').innerText = data.positivity_rate;
+
+                // Update Logs
+                const tbody = document.getElementById('logTable');
+                if (data.recent_tests.length === 0) return;
+
+                tbody.innerHTML = data.recent_tests.map(t => {
+                    const imgSrc = t.image_url ? `${API_URL}${t.image_url}` : '';
+                    const imgTag = imgSrc ? `<img src="${imgSrc}" class="img-preview">` : 'NULL';
+
+                    return `
+<tr>
+    <td style="color:#a1a1aa">${new Date(t.created_at).toISOString().split('T')[1].split('.')[0]}</td>
+    <td style="color:#3b82f6">${t.patient_id.substring(0, 8)}</td>
+    <td>${imgTag}</td>
+    <td>${t.location}</td>
+    <td>
+        <div style="color: ${t.temperature > 100 ? '#fca5a5' : '#e4e4e7'}">T: ${t.temperature}°F</div>
+        <div style="color: ${t.spo2_reading < 94 ? '#fca5a5' : '#a1a1aa'}">O2: ${t.spo2_reading}%</div>
+    </td>
+    <td><span class="badge ${t.result === 'positive' ? 'pos' : 'neg'}">${t.result}</span></td>
+    <td>${t.confidence}%</td>
+</tr>
+`
+                }).join('');
+
+            } catch (err) {
+                if (err.name !== 'AbortError') console.error('Poll failed:', err);
+            }
+        }
+
+        setInterval(pollDatabase, 5000);
+        pollDatabase();
+    </script>
+</body>
+
+</html>

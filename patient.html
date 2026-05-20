@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PHC Patient Intake</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f0f4f8;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            color: #333;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 420px;
+            padding: 30px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border-top: 5px solid #0056b3;
+        }
+
+        h1 {
+            font-size: 1.6rem;
+            margin-bottom: 5px;
+            color: #1a202c;
+        }
+
+        p.subtitle {
+            color: #718096;
+            margin-bottom: 25px;
+            font-size: 0.95rem;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            color: #4a5568;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 1rem;
+            color: #2d3748;
+            transition: all 0.2s;
+        }
+
+        input:focus {
+            border-color: #0056b3;
+            box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
+            outline: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #0056b3;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #004494;
+        }
+
+        .message {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            display: none;
+            font-weight: 500;
+        }
+
+        .message.success {
+            background: #e6ffed;
+            color: #22863a;
+            border: 1px solid #b7ebc6;
+            display: block;
+        }
+
+        .message.error {
+            background: #ffeef0;
+            color: #cb2431;
+            border: 1px solid #ffdce0;
+            display: block;
+        }
+
+        .message.warning {
+            background: #fff8c5;
+            color: #735c0f;
+            border: 1px solid #f9e289;
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Patient Vitals</h1>
+        <p class="subtitle">Enter patient data to screen for triage.</p>
+
+        <div class="form-group"><label>Full Name</label><input type="text" id="name" placeholder="John Doe" /></div>
+        <div class="form-group"><label>Phone Number</label><input type="text" id="phone" placeholder="+91..." /></div>
+        <div class="form-group"><label>Village/Location</label><input type="text" id="location"
+                placeholder="Ullal District" /></div>
+        <div class="form-group"><label>SpO2 Reading (%)</label><input type="number" id="spo2" placeholder="98" /></div>
+
+        <button onclick="submitVitals()">Record Vitals</button>
+        <div class="message" id="message"></div>
+    </div>
+
+    <script>
+        async function submitVitals() {
+            const payload = {
+                name: document.getElementById('name').value, phone: document.getElementById('phone').value,
+                location: document.getElementById('location').value, spo2_reading: parseInt(document.getElementById('spo2').value)
+            };
+            const msg = document.getElementById('message');
+            if (!payload.name || !payload.spo2_reading) { msg.className = "message error"; msg.textContent = "Name and SpO2 required."; return; }
+
+            try {
+                const res = await fetch('http://localhost:3000/api/malaria/spo2', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.alert_sent) {
+                    msg.className = "message warning"; msg.innerHTML = `⚠️ SpO2 is critically low (${payload.spo2_reading}%). Alert dispatched to ASHA worker!`;
+                } else {
+                    msg.className = "message success"; msg.textContent = "Vitals recorded successfully. SpO2 is normal.";
+                }
+            } catch (err) { msg.className = "message error"; msg.textContent = "Server connection failed."; }
+        }
+    </script>
+</body>
+
+</html>

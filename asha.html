@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ParaScope Field Client v2.0</title>
+    <style>
+        :root {
+            --bg: #f4f4f5;
+            --surface: #ffffff;
+            --border: #d4d4d8;
+            --text: #18181b;
+            --accent: #2563eb;
+        }
+
+        body {
+            font-family: ui-sans-serif, system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 10px;
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        header {
+            border-bottom: 2px solid var(--text);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: -0.5px;
+        }
+
+        .telemetry {
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            font-size: 11px;
+            color: #52525b;
+            text-align: right;
+        }
+
+        fieldset {
+            border: 1px solid var(--border);
+            background: var(--surface);
+            margin-bottom: 15px;
+            padding: 12px;
+            border-radius: 4px;
+        }
+
+        legend {
+            font-weight: bold;
+            background: var(--text);
+            color: white;
+            padding: 2px 8px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 500;
+            font-size: 12px;
+            color: #3f3f46;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            margin-bottom: 10px;
+            font-family: inherit;
+        }
+
+        input:focus {
+            outline: 1px solid var(--accent);
+            border-color: var(--accent);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .chip-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .chip {
+            padding: 4px 10px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            font-size: 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .chip.active {
+            background: var(--text);
+            color: white;
+            border-color: var(--text);
+        }
+
+        input[type="file"] {
+            border: 1px dashed var(--border);
+            padding: 15px;
+            background: var(--bg);
+            cursor: pointer;
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 12px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: inherit;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        button:disabled {
+            background: #a1a1aa;
+            cursor: not-allowed;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .result-box {
+            border: 1px solid var(--text);
+            background: #fafafa;
+            padding: 15px;
+            font-family: ui-monospace, monospace;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px dotted var(--border);
+            padding: 6px 0;
+        }
+
+        .pos {
+            color: #dc2626;
+            font-weight: bold;
+        }
+
+        .neg {
+            color: #16a34a;
+            font-weight: bold;
+        }
+
+        #passportStatus {
+            font-size: 11px;
+            color: var(--accent);
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: none;
+        }
+
+        .history-list {
+            list-style: none;
+            padding: 0;
+            margin: 10px 0 0 0;
+            font-size: 12px;
+        }
+
+        .history-list li {
+            padding: 6px 0;
+            border-bottom: 1px dashed var(--border);
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>ParaScope [Node]</h1>
+            <div class="telemetry">STATUS: <span style="color:#16a34a">ONLINE</span></div>
+        </header>
+
+        <div id="formView">
+            <fieldset>
+                <legend>Patient Demographics</legend>
+                <label>Contact (Phone) - *Enter first for Auto-Lookup*</label>
+                <input type="number" id="pPhone" placeholder="10-digit number" onblur="lookupPatient()">
+
+                <div id="passportStatus">✓ Returning Patient Found</div>
+
+                <div class="grid-2">
+                    <div><label>Legal Name</label><input type="text" id="pName" placeholder="Enter name"></div>
+                    <div><label>Zone / Village</label><input type="text" id="pLoc" placeholder="Location"></div>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Clinical Vitals (Today)</legend>
+                <div class="grid-2">
+                    <div><label>Core Temp (°F)</label><input type="number" id="pTemp" placeholder="101.5"></div>
+                    <div><label>Blood O2 (SpO2 %)</label><input type="number" id="pSpo2" placeholder="98"></div>
+                </div>
+                <label style="margin-top: 5px;">Symptom Flags</label>
+                <div class="chip-group">
+                    <div class="chip" onclick="this.classList.toggle('active')">Fever</div>
+                    <div class="chip" onclick="this.classList.toggle('active')">Chills</div>
+                    <div class="chip" onclick="this.classList.toggle('active')">Nausea</div>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Diagnostic Payload</legend>
+                <input type="file" id="pImage" accept="image/*">
+            </fieldset>
+
+            <button id="submitBtn" onclick="submitPayload()">EXECUTE INFERENCE</button>
+        </div>
+
+        <div id="resultView" class="hidden">
+            <fieldset class="result-box">
+                <legend>Current Visit Result</legend>
+                <div class="result-row"><span>AI Classification:</span> <span id="resClass"
+                        style="text-transform: uppercase;"></span></div>
+                <div class="result-row"><span>Confidence:</span> <span id="resConf"></span></div>
+                <div class="result-row"><span>Logic Path:</span> <span id="resReason"
+                        style="text-align: right; max-width: 60%;"></span></div>
+            </fieldset>
+
+            <fieldset class="result-box" style="margin-top: 15px; background: white;">
+                <legend>Digital Medical Passport (History)</legend>
+                <ul class="history-list" id="historyList">
+                </ul>
+            </fieldset>
+
+            <button onclick="resetClient()" style="background: var(--text); margin-top:15px;">ACKNOWLEDGE &
+                RESET</button>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api/malaria';
+
+        // THE AUTO-LOOKUP ENGINE
+        async function lookupPatient() {
+            const phone = document.getElementById('pPhone').value;
+            if (phone.length < 5) return; // Wait till they type a real number
+
+            try {
+                const res = await fetch(`${API_URL}/patient/${phone}`);
+                const data = await res.json();
+
+                if (data.found) {
+                    document.getElementById('pName').value = data.patient.name;
+                    document.getElementById('pLoc').value = data.patient.location;
+                    const status = document.getElementById('passportStatus');
+                    status.innerText = `✓ Digital Passport Linked (${data.history.length} Past Visits)`;
+                    status.style.display = 'block';
+                } else {
+                    document.getElementById('passportStatus').style.display = 'none';
+                }
+            } catch (err) { console.error("Lookup failed", err); }
+        }
+
+        async function submitPayload() {
+            const name = document.getElementById('pName').value;
+            const phone = document.getElementById('pPhone').value;
+            const location = document.getElementById('pLoc').value;
+            const temp = document.getElementById('pTemp').value;
+            const spo2 = document.getElementById('pSpo2').value;
+            const file = document.getElementById('pImage').files[0];
+            const btn = document.getElementById('submitBtn');
+
+            const activeChips = document.querySelectorAll('.chip.active');
+            const symptoms = Array.from(activeChips).map(c => c.innerText).join(', ');
+
+            if (!phone || !file) { alert("Phone and Image required."); return; }
+
+            btn.disabled = true;
+            btn.innerText = "UPLOADING PASSPORT DATA...";
+
+            try {
+                // ONE SINGLE PAYLOAD - Form Data handles text and files perfectly together
+                const fd = new FormData();
+                fd.append('name', name);
+                fd.append('phone', phone);
+                fd.append('location', location);
+                fd.append('temperature', temp);
+                fd.append('spo2_reading', spo2);
+                fd.append('symptoms', symptoms);
+                fd.append('smearImage', file);
+
+                const res = await fetch(`${API_URL}/visit`, { method: 'POST', body: fd });
+                if (!res.ok) throw new Error("Server error - is Python running?");
+                const data = await res.json();
+
+                // Build the UI
+                document.getElementById('formView').classList.add('hidden');
+                document.getElementById('resultView').classList.remove('hidden');
+
+                const classEl = document.getElementById('resClass');
+                classEl.innerText = data.result;
+                classEl.className = data.result.toLowerCase().includes('positive') ? 'pos' : 'neg';
+
+                document.getElementById('resConf').innerText = data.confidence + '%';
+                document.getElementById('resReason').innerText = data.reason;
+
+                // RENDER PASSPORT HISTORY
+                const historyList = document.getElementById('historyList');
+                historyList.innerHTML = data.history.map((visit, index) => {
+                    const date = new Date(visit.created_at).toLocaleDateString();
+                    const isPos = visit.result.toLowerCase().includes('positive');
+                    return `<li>
+                        <span><strong>Visit ${data.history.length - index}</strong> (${date})</span>
+                        <span class="${isPos ? 'pos' : 'neg'}">${visit.result}</span>
+                    </li>`;
+                }).join('');
+
+            } catch (err) { alert(err.message); }
+            finally { btn.disabled = false; btn.innerText = "EXECUTE INFERENCE"; }
+        }
+
+        function resetClient() {
+            document.getElementById('pName').value = '';
+            document.getElementById('pPhone').value = '';
+            document.getElementById('pLoc').value = '';
+            document.getElementById('pTemp').value = '';
+            document.getElementById('pSpo2').value = '';
+            document.getElementById('pImage').value = '';
+            document.getElementById('passportStatus').style.display = 'none';
+            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+            document.getElementById('resultView').classList.add('hidden');
+            document.getElementById('formView').classList.remove('hidden');
+        }
+    </script>
+</body>
+
+</html>

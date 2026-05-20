@@ -2,26 +2,23 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 
-const exampleRoutes = require("./src/routes/example");
-const usersRoutes = require("./src/routes/users");
+
 const malariaRoutes = require("./src/routes/malaria"); 
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 1. MIDDLEWARE: These MUST come before the routes!
+// 1. MIDDLEWARE
 app.use(cors());
-app.use(express.json()); // <--- This is the magic line that fixes your crash!
-app.use("/uploads", express.static("uploads")); // Makes images visible to the dashboard
+app.use(express.json()); 
+app.use("/uploads", express.static("uploads")); 
 
 // 2. ROUTES
 app.get("/", (req, res) => {
-  res.json({ status: "ok", message: "backend is running" });
+  res.json({ status: "ok", message: "ParaScope Node Hub is running cleanly!" });
 });
 
-app.use("/api/example", exampleRoutes);
-app.use("/api/users", usersRoutes);
-app.use("/api/malaria", malariaRoutes); // Routes can now safely read req.body
+app.use("/api/malaria", malariaRoutes); 
 
 // 3. ERROR HANDLING
 app.use((err, req, res, next) => {

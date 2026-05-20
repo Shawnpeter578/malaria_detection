@@ -4,272 +4,420 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ParaScope Field Client v2.0</title>
+    <title>ParaScope | Clinical Field Client</title>
     <style>
         :root {
-            --bg: #f4f4f5;
+            --bg: #f1f5f9;
             --surface: #ffffff;
-            --border: #d4d4d8;
-            --text: #18181b;
-            --accent: #2563eb;
+            --border: #cbd5e1;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --brand-blue: #0284c7;
+            --brand-blue-hover: #0369a1;
+            --alert-red: #dc2626;
+            --safe-green: #059669;
         }
 
         body {
-            font-family: ui-sans-serif, system-ui, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background: var(--bg);
-            color: var(--text);
+            color: var(--text-main);
             margin: 0;
-            padding: 10px;
+            padding: 20px 15px;
             font-size: 14px;
+            -webkit-font-smoothing: antialiased;
         }
 
         .container {
             max-width: 500px;
             margin: 0 auto;
-        }
-
-        header {
-            border-bottom: 2px solid var(--text);
-            padding-bottom: 10px;
-            margin-bottom: 15px;
             display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
+            flex-direction: column;
+            gap: 20px;
         }
 
-        header h1 {
-            margin: 0;
-            font-size: 1.2rem;
-            text-transform: uppercase;
-            letter-spacing: -0.5px;
-        }
-
-        .telemetry {
-            font-family: ui-monospace, SFMono-Regular, monospace;
-            font-size: 11px;
-            color: #52525b;
-            text-align: right;
-        }
-
-        fieldset {
-            border: 1px solid var(--border);
+        .card {
             background: var(--surface);
-            margin-bottom: 15px;
-            padding: 12px;
-            border-radius: 4px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            padding: 24px;
+            transition: all 0.3s ease;
         }
 
-        legend {
-            font-weight: bold;
-            background: var(--text);
-            color: white;
-            padding: 2px 8px;
-            font-size: 12px;
+        .header {
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 16px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.25rem;
+            color: var(--text-main);
+            font-weight: 700;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
+        .header p {
+            margin: 4px 0 0 0;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .section-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+            font-weight: 700;
+            margin: 0 0 12px 0;
+        }
+
+        /* Input Styling */
         label {
             display: block;
-            margin-bottom: 4px;
-            font-weight: 500;
-            font-size: 12px;
-            color: #3f3f46;
+            margin-bottom: 6px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-main);
         }
 
         input[type="text"],
-        input[type="number"] {
+        input[type="number"],
+        input[type="tel"] {
             width: 100%;
             box-sizing: border-box;
-            padding: 8px;
+            padding: 12px;
             border: 1px solid var(--border);
-            border-radius: 2px;
-            margin-bottom: 10px;
+            border-radius: 6px;
+            margin-bottom: 16px;
             font-family: inherit;
+            font-size: 15px;
+            color: var(--text-main);
+            background: #f8fafc;
+            transition: all 0.2s ease;
         }
 
         input:focus {
-            outline: 1px solid var(--accent);
-            border-color: var(--accent);
+            outline: none;
+            border-color: var(--brand-blue);
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1);
         }
 
         .grid-2 {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            gap: 16px;
         }
 
+        /* Status Banners */
+        .status-banner {
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-top: -8px;
+            margin-bottom: 16px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            border-left: 4px solid transparent;
+        }
+
+        .status-banner.linked {
+            background: #ecfdf5;
+            color: #065f46;
+            border-left-color: var(--safe-green);
+            display: flex;
+        }
+
+        .status-banner.new {
+            background: #f0f9ff;
+            color: #0369a1;
+            border-left-color: var(--brand-blue);
+            display: flex;
+        }
+
+        /* Professional Chips */
         .chip-group {
             display: flex;
             flex-wrap: wrap;
-            gap: 6px;
+            gap: 8px;
+            margin-bottom: 20px;
         }
 
         .chip {
-            padding: 4px 10px;
+            padding: 8px 16px;
             border: 1px solid var(--border);
-            background: var(--bg);
-            font-size: 12px;
+            border-radius: 6px;
+            background: #f8fafc;
+            font-size: 0.85rem;
+            font-weight: 600;
             cursor: pointer;
             user-select: none;
+            transition: all 0.2s;
+            color: var(--text-muted);
         }
 
         .chip.active {
-            background: var(--text);
-            color: white;
-            border-color: var(--text);
+            background: #e0f2fe;
+            color: var(--brand-blue);
+            border-color: var(--brand-blue);
         }
 
-        input[type="file"] {
-            border: 1px dashed var(--border);
-            padding: 15px;
-            background: var(--bg);
+        /* Professional Dropzone */
+        .file-drop {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 24px 20px;
+            text-align: center;
+            background: #f8fafc;
             cursor: pointer;
-            width: 100%;
-            box-sizing: border-box;
-            font-size: 12px;
+            margin-bottom: 24px;
+            transition: all 0.2s ease;
+            display: block;
         }
 
-        button {
-            width: 100%;
-            padding: 12px;
-            background: var(--accent);
-            color: white;
-            border: none;
-            font-weight: bold;
-            cursor: pointer;
-            font-family: inherit;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+        .file-drop:hover {
+            border-color: var(--brand-blue);
+            background: #f0f9ff;
         }
 
-        button:disabled {
-            background: #a1a1aa;
-            cursor: not-allowed;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        .result-box {
-            border: 1px solid var(--text);
-            background: #fafafa;
-            padding: 15px;
-            font-family: ui-monospace, monospace;
-        }
-
-        .result-row {
-            display: flex;
-            justify-content: space-between;
-            border-bottom: 1px dotted var(--border);
-            padding: 6px 0;
-        }
-
-        .pos {
-            color: #dc2626;
-            font-weight: bold;
-        }
-
-        .neg {
-            color: #16a34a;
-            font-weight: bold;
-        }
-
-        #passportStatus {
-            font-size: 11px;
-            color: var(--accent);
-            font-weight: bold;
-            margin-bottom: 10px;
+        .file-drop input[type="file"] {
             display: none;
         }
 
-        .history-list {
-            list-style: none;
-            padding: 0;
-            margin: 10px 0 0 0;
-            font-size: 12px;
+        .file-drop .drop-title {
+            margin: 0 0 4px 0;
+            color: var(--text-main);
+            font-weight: 600;
+            font-size: 1rem;
         }
 
-        .history-list li {
-            padding: 6px 0;
-            border-bottom: 1px dashed var(--border);
+        .file-drop .drop-subtitle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .file-drop.success {
+            border-color: var(--safe-green);
+            background: #ecfdf5;
+            border-style: solid;
+        }
+
+        .file-drop.success .drop-title {
+            color: var(--safe-green);
+        }
+
+        button.primary {
+            width: 100%;
+            padding: 14px;
+            background: var(--brand-blue);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button.primary:hover {
+            background: var(--brand-blue-hover);
+        }
+
+        button.primary:disabled {
+            background: var(--border);
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        /* Continuous Result Feed */
+        .result-panel {
+            display: none;
+            flex-direction: column;
+            gap: 16px;
+            animation: slideDown 0.4s ease-out forwards;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-box {
             display: flex;
             justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            border-radius: 8px;
+            border-left: 4px solid transparent;
+            background: #f8fafc;
+            border-top: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .result-box.pos {
+            border-left-color: var(--alert-red);
+            background: #fef2f2;
+        }
+
+        .result-box.neg {
+            border-left-color: var(--safe-green);
+            background: #ecfdf5;
+        }
+
+        .res-classification {
+            font-size: 1.4rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .pos .res-classification {
+            color: var(--alert-red);
+        }
+
+        .neg .res-classification {
+            color: var(--safe-green);
+        }
+
+        .res-meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .conf-badge {
+            padding: 4px 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .action-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        button.secondary {
+            flex: 1;
+            padding: 12px;
+            background: var(--surface);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        button.secondary:hover {
+            background: #f1f5f9;
         }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <header>
-            <h1>ParaScope [Node]</h1>
-            <div class="telemetry">STATUS: <span style="color:#16a34a">ONLINE</span></div>
-        </header>
 
-        <div id="formView">
-            <fieldset>
-                <legend>Patient Demographics</legend>
-                <label>Contact (Phone) - *Enter first for Auto-Lookup*</label>
-                <input type="number" id="pPhone" placeholder="10-digit number" onblur="lookupPatient()">
+        <div class="card" id="formCard">
+            <div class="header">
+                <h1>ParaScope Field Client</h1>
+                <p>Clinical Data Acquisition Protocol</p>
+            </div>
 
-                <div id="passportStatus">✓ Returning Patient Found</div>
+            <div class="section-label">Patient Identity</div>
+            <label>Contact Number</label>
+            <input type="tel" id="pPhone" placeholder="10-Digit ID" maxlength="10" oninput="autoLookup(this.value)">
 
-                <div class="grid-2">
-                    <div><label>Legal Name</label><input type="text" id="pName" placeholder="Enter name"></div>
-                    <div><label>Zone / Village</label><input type="text" id="pLoc" placeholder="Location"></div>
-                </div>
-            </fieldset>
+            <div id="passportStatus" class="status-banner"></div>
 
-            <fieldset>
-                <legend>Clinical Vitals (Today)</legend>
-                <div class="grid-2">
-                    <div><label>Core Temp (°F)</label><input type="number" id="pTemp" placeholder="101.5"></div>
-                    <div><label>Blood O2 (SpO2 %)</label><input type="number" id="pSpo2" placeholder="98"></div>
-                </div>
-                <label style="margin-top: 5px;">Symptom Flags</label>
-                <div class="chip-group">
-                    <div class="chip" onclick="this.classList.toggle('active')">Fever</div>
-                    <div class="chip" onclick="this.classList.toggle('active')">Chills</div>
-                    <div class="chip" onclick="this.classList.toggle('active')">Nausea</div>
-                </div>
-            </fieldset>
+            <div class="grid-2">
+                <div><label>Legal Name</label><input type="text" id="pName" placeholder="Full Name"></div>
+                <div><label>Zone / Location</label><input type="text" id="pLoc" placeholder="District Block"></div>
+            </div>
 
-            <fieldset>
-                <legend>Diagnostic Payload</legend>
-                <input type="file" id="pImage" accept="image/*">
-            </fieldset>
+            <div class="section-label" style="margin-top: 10px;">Clinical Vitals</div>
+            <div class="grid-2">
+                <div><label>Core Temp (°F)</label><input type="number" id="pTemp" placeholder="e.g. 98.6"></div>
+                <div><label>Blood SpO2 (%)</label><input type="number" id="pSpo2" placeholder="e.g. 98"></div>
+            </div>
 
-            <button id="submitBtn" onclick="submitPayload()">EXECUTE INFERENCE</button>
+            <label style="margin-top: 4px;">Symptomatic Flags</label>
+            <div class="chip-group">
+                <div class="chip" onclick="this.classList.toggle('active')">Fever</div>
+                <div class="chip" onclick="this.classList.toggle('active')">Chills</div>
+                <div class="chip" onclick="this.classList.toggle('active')">Nausea</div>
+            </div>
+
+            <div class="section-label">Diagnostic Telemetry</div>
+            <label class="file-drop" id="dropZone">
+                <div class="drop-title" id="dropTitle">[ ATTACH SMEAR SLIDE ]</div>
+                <div class="drop-subtitle" id="dropText">Microscopy Image Upload</div>
+                <input type="file" id="pImage" accept="image/*" onchange="updateFileUI(this)">
+            </label>
+
+            <button class="primary" id="submitBtn" onclick="submitPayload()">Transmit & Analyze</button>
         </div>
 
-        <div id="resultView" class="hidden">
-            <fieldset class="result-box">
-                <legend>Current Visit Result</legend>
-                <div class="result-row"><span>AI Classification:</span> <span id="resClass"
-                        style="text-transform: uppercase;"></span></div>
-                <div class="result-row"><span>Confidence:</span> <span id="resConf"></span></div>
-                <div class="result-row"><span>Logic Path:</span> <span id="resReason"
-                        style="text-align: right; max-width: 60%;"></span></div>
-            </fieldset>
+        <div id="resultFeed" class="result-panel">
+            <div class="section-label" style="margin-bottom: 0;">Diagnostic Output</div>
 
-            <fieldset class="result-box" style="margin-top: 15px; background: white;">
-                <legend>Digital Medical Passport (History)</legend>
-                <ul class="history-list" id="historyList">
-                </ul>
-            </fieldset>
+            <div class="result-box" id="resultCard">
+                <div>
+                    <div class="res-classification" id="resClass">--</div>
+                    <div class="res-meta">Engine Logic: <span id="resReason">--</span></div>
+                </div>
+                <div class="conf-badge" id="resConf">--%</div>
+            </div>
 
-            <button onclick="resetClient()" style="background: var(--text); margin-top:15px;">ACKNOWLEDGE &
-                RESET</button>
+            <div class="action-row">
+                <button class="secondary" onclick="resetForSamePatient()">Clear Vitals (Same Patient)</button>
+                <button class="primary" onclick="resetAll()">End Session (New Patient)</button>
+            </div>
         </div>
+
     </div>
 
     <script>
         const API_URL = 'http://localhost:3000/api/malaria';
 
-        // THE AUTO-LOOKUP ENGINE
-        async function lookupPatient() {
-            const phone = document.getElementById('pPhone').value;
-            if (phone.length < 5) return; // Wait till they type a real number
+        function updateFileUI(input) {
+            if (input.files && input.files[0]) {
+                document.getElementById('dropTitle').innerText = 'SLIDE SECURED';
+                document.getElementById('dropText').innerText = input.files[0].name;
+                document.getElementById('dropZone').classList.add('success');
+            }
+        }
+
+        // ZERO-LATENCY LOOKUP
+        async function autoLookup(phone) {
+            const status = document.getElementById('passportStatus');
+
+            // Only fire exactly when 10 digits are typed
+            if (phone.length !== 10) {
+                status.className = 'status-banner';
+                return;
+            }
 
             try {
                 const res = await fetch(`${API_URL}/patient/${phone}`);
@@ -278,13 +426,13 @@
                 if (data.found) {
                     document.getElementById('pName').value = data.patient.name;
                     document.getElementById('pLoc').value = data.patient.location;
-                    const status = document.getElementById('passportStatus');
-                    status.innerText = `✓ Digital Passport Linked (${data.history.length} Past Visits)`;
-                    status.style.display = 'block';
+                    status.innerHTML = `<span>RECORD LINKED</span> <span>VISITS: ${data.history.length}</span>`;
+                    status.className = 'status-banner linked';
                 } else {
-                    document.getElementById('passportStatus').style.display = 'none';
+                    status.innerHTML = `<span>NO PRIOR RECORD</span> <span>NEW PASSPORT WILL BE GENERATED</span>`;
+                    status.className = 'status-banner new';
                 }
-            } catch (err) { console.error("Lookup failed", err); }
+            } catch (err) { console.error("Lookup failed:", err); }
         }
 
         async function submitPayload() {
@@ -299,63 +447,63 @@
             const activeChips = document.querySelectorAll('.chip.active');
             const symptoms = Array.from(activeChips).map(c => c.innerText).join(', ');
 
-            if (!phone || !file) { alert("Phone and Image required."); return; }
+            if (!phone || !file) { alert("Protocol Error: Contact Number and Microscopy Image are mandatory."); return; }
 
             btn.disabled = true;
-            btn.innerText = "UPLOADING PASSPORT DATA...";
+            btn.innerText = "Processing Telemetry...";
 
             try {
-                // ONE SINGLE PAYLOAD - Form Data handles text and files perfectly together
                 const fd = new FormData();
-                fd.append('name', name);
-                fd.append('phone', phone);
-                fd.append('location', location);
-                fd.append('temperature', temp);
-                fd.append('spo2_reading', spo2);
-                fd.append('symptoms', symptoms);
+                fd.append('name', name); fd.append('phone', phone); fd.append('location', location);
+                fd.append('temperature', temp); fd.append('spo2_reading', spo2); fd.append('symptoms', symptoms);
                 fd.append('smearImage', file);
 
                 const res = await fetch(`${API_URL}/visit`, { method: 'POST', body: fd });
-                if (!res.ok) throw new Error("Server error - is Python running?");
+                if (!res.ok) throw new Error("Server disconnect.");
                 const data = await res.json();
 
-                // Build the UI
-                document.getElementById('formView').classList.add('hidden');
-                document.getElementById('resultView').classList.remove('hidden');
+                // UI Architecture Change: Append results below without hiding the form
+                document.getElementById('resultFeed').style.display = 'flex';
 
+                const card = document.getElementById('resultCard');
                 const classEl = document.getElementById('resClass');
+
                 classEl.innerText = data.result;
-                classEl.className = data.result.toLowerCase().includes('positive') ? 'pos' : 'neg';
+                card.className = `result-box ${data.result.toLowerCase().includes('positive') ? 'pos' : 'neg'}`;
 
                 document.getElementById('resConf').innerText = data.confidence + '%';
-                document.getElementById('resReason').innerText = data.reason;
+                document.getElementById('resReason').innerText = data.reasoning;
 
-                // RENDER PASSPORT HISTORY
-                const historyList = document.getElementById('historyList');
-                historyList.innerHTML = data.history.map((visit, index) => {
-                    const date = new Date(visit.created_at).toLocaleDateString();
-                    const isPos = visit.result.toLowerCase().includes('positive');
-                    return `<li>
-                        <span><strong>Visit ${data.history.length - index}</strong> (${date})</span>
-                        <span class="${isPos ? 'pos' : 'neg'}">${visit.result}</span>
-                    </li>`;
-                }).join('');
+                // Smooth scroll down to the result
+                document.getElementById('resultFeed').scrollIntoView({ behavior: 'smooth', block: 'end' });
 
             } catch (err) { alert(err.message); }
-            finally { btn.disabled = false; btn.innerText = "EXECUTE INFERENCE"; }
+            finally { btn.disabled = false; btn.innerText = "Transmit & Analyze"; }
         }
 
-        function resetClient() {
-            document.getElementById('pName').value = '';
-            document.getElementById('pPhone').value = '';
-            document.getElementById('pLoc').value = '';
+        // Keep patient data, clear only the current vitals/slide
+        function resetForSamePatient() {
             document.getElementById('pTemp').value = '';
             document.getElementById('pSpo2').value = '';
             document.getElementById('pImage').value = '';
-            document.getElementById('passportStatus').style.display = 'none';
             document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-            document.getElementById('resultView').classList.add('hidden');
-            document.getElementById('formView').classList.remove('hidden');
+
+            const drop = document.getElementById('dropZone');
+            drop.classList.remove('success');
+            document.getElementById('dropTitle').innerText = '[ ATTACH SMEAR SLIDE ]';
+            document.getElementById('dropText').innerText = 'Microscopy Image Upload';
+
+            document.getElementById('resultFeed').style.display = 'none';
+        }
+
+        // Complete wipe for a new patient
+        function resetAll() {
+            resetForSamePatient();
+            document.getElementById('pPhone').value = '';
+            document.getElementById('pName').value = '';
+            document.getElementById('pLoc').value = '';
+            document.getElementById('passportStatus').className = 'status-banner';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     </script>
 </body>

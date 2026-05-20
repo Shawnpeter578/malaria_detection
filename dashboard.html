@@ -4,200 +4,344 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ParaScope Admin // Node.js</title>
+    <title>ParaScope | District Registry</title>
     <style>
         :root {
-            --bg: #09090b;
-            --surface: #18181b;
-            --text: #e4e4e7;
-            --accent: #3b82f6;
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text: #0f172a;
+            --text-light: #64748b;
+            --primary: #3b82f6;
             --danger: #ef4444;
-            --border: #27272a;
-            --muted: #a1a1aa;
+            --success: #10b981;
         }
 
         body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background: var(--bg);
             color: var(--text);
-            font-family: ui-monospace, SFMono-Regular, monospace;
             margin: 0;
-            padding: 20px;
-            font-size: 13px;
+            padding: 30px;
+        }
+
+        .max-w {
+            max-width: 1000px;
+            margin: 0 auto;
         }
 
         .header {
             display: flex;
             justify-content: space-between;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 10px;
-            margin-bottom: 20px;
+            align-items: center;
+            margin-bottom: 30px;
         }
 
         .header h1 {
             margin: 0;
-            font-size: 1.2rem;
-            font-weight: normal;
+            font-size: 1.8rem;
+            color: var(--text);
+            font-weight: 700;
+            letter-spacing: -0.5px;
         }
 
-        .pulse {
-            display: inline-block;
+        .live-status {
+            background: #dcfce7;
+            color: #166534;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .live-status::before {
+            content: '';
             width: 8px;
             height: 8px;
             background: #22c55e;
             border-radius: 50%;
-            margin-right: 5px;
-            box-shadow: 0 0 8px #22c55e;
+            box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
         }
 
         .kpi-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 15px;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .kpi-card {
+            background: var(--surface);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border);
+        }
+
+        .kpi-title {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .kpi-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .kpi-card.alert .kpi-value {
+            color: var(--danger);
+        }
+
+        .search-container {
+            position: relative;
             margin-bottom: 20px;
         }
 
-        .kpi {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            padding: 15px;
-            border-left: 3px solid var(--text);
-        }
-
-        .kpi.warn {
-            border-left-color: var(--danger);
-        }
-
-        .kpi span {
-            display: block;
-            color: var(--muted);
-            font-size: 10px;
-            text-transform: uppercase;
-            margin-bottom: 5px;
-        }
-
-        .kpi strong {
-            font-size: 1.5rem;
-            font-weight: normal;
-            font-variant-numeric: tabular-nums;
-        }
-
-        /* Search Bar */
         .search-bar {
             width: 100%;
             box-sizing: border-box;
-            padding: 12px;
-            background: var(--surface);
-            color: var(--text);
+            padding: 16px 20px;
+            font-size: 1rem;
             border: 1px solid var(--border);
-            margin-bottom: 15px;
-            font-family: inherit;
-            text-transform: uppercase;
+            border-radius: 12px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s;
         }
 
         .search-bar:focus {
-            outline: 1px solid var(--accent);
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
 
-        /* HTML5 Native Accordion Cards */
-        details {
+        /* Patient Cards (Clickable) */
+        .patient-card {
             background: var(--surface);
-            border: 1px solid var(--border);
-            margin-bottom: 8px;
-            border-radius: 2px;
-        }
-
-        summary {
-            padding: 12px 15px;
-            cursor: pointer;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            padding: 16px 20px;
             display: flex;
             justify-content: space-between;
-            list-style: none;
-            font-weight: bold;
-            background: #121214;
+            align-items: center;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        summary::-webkit-details-marker {
-            display: none;
+        .patient-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border-color: var(--primary);
         }
 
-        summary:hover {
-            background: #27272a;
+        .patient-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
 
-        details[open] summary {
-            border-bottom: 1px solid var(--border);
-            background: var(--surface);
-        }
-
-        .details-content {
-            padding: 0 15px 15px 15px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-
-        th,
-        td {
-            padding: 8px 10px;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
-
-        th {
-            color: var(--muted);
-            font-size: 10px;
-            text-transform: uppercase;
-        }
-
-        td {
-            font-variant-numeric: tabular-nums;
+        .avatar-img {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            object-fit: cover;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .badge {
-            padding: 2px 6px;
-            border-radius: 2px;
-            font-size: 10px;
-            font-weight: bold;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .badge.pos {
-            background: rgba(239, 68, 68, 0.2);
-            color: #fca5a5;
-            border: 1px solid #ef4444;
+            background: #fee2e2;
+            color: #b91c1c;
         }
 
         .badge.neg {
-            background: rgba(34, 197, 94, 0.2);
-            color: #86efac;
-            border: 1px solid #22c55e;
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        /* MODAL ANIMATION UI */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal-content {
+            background: var(--surface);
+            width: 90%;
+            max-width: 800px;
+            border-radius: 16px;
+            padding: 0;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            transform: translateY(30px) scale(0.95);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            max-height: 85vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: translateY(0) scale(1);
+        }
+
+        .modal-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            position: sticky;
+            top: 0;
+            background: var(--surface);
+            z-index: 10;
+            border-radius: 16px 16px 0 0;
+        }
+
+        .close-btn {
+            background: #f1f5f9;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: var(--text-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .close-btn:hover {
+            background: #e2e8f0;
+            color: var(--danger);
+            transform: rotate(90deg);
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        /* Modal Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            background: #f8fafc;
+            padding: 12px 20px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: var(--text-light);
+            font-weight: 600;
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+            vertical-align: middle;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .smear-thumb {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 1px solid var(--border);
         }
     </style>
 </head>
 
 <body>
+    <div class="max-w">
+        <div class="header">
+            <div>
+                <h1>District Registry</h1>
+                <p style="margin: 4px 0 0 0; color: var(--text-light);">ParaScope Medical Passport System</p>
+            </div>
+            <div class="live-status">Secure Connection</div>
+        </div>
 
-    <div class="header">
-        <h1>ParaScope // District Registry</h1>
-        <div><span class="pulse"></span> DB SYNC: <span id="syncStatus">ACTIVE</span></div>
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-title">Total Patients</div>
+                <div class="kpi-value" id="kpi-pat">--</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Screenings Conducted</div>
+                <div class="kpi-value" id="kpi-inf">--</div>
+            </div>
+            <div class="kpi-card alert">
+                <div class="kpi-title">Positive Cases</div>
+                <div class="kpi-value" id="kpi-pos">--</div>
+            </div>
+            <div class="kpi-card alert">
+                <div class="kpi-title">Positivity Rate</div>
+                <div class="kpi-value" id="kpi-rate">--</div>
+            </div>
+        </div>
+
+        <div class="search-container">
+            <input type="text" id="searchBox" class="search-bar"
+                placeholder="Search medical registry by name or phone number..." onkeyup="filterPatients()">
+        </div>
+
+        <div id="patientRegistry">
+            <div style="text-align: center; color: var(--text-light); padding: 40px;">Fetching Patient Data...</div>
+        </div>
     </div>
 
-    <div class="kpi-grid">
-        <div class="kpi"><span>Registered Patients</span><strong id="kpi-pat">--</strong></div>
-        <div class="kpi"><span>Total Screenings</span><strong id="kpi-inf">--</strong></div>
-        <div class="kpi warn"><span>Positive Detections</span><strong id="kpi-pos"
-                style="color:var(--danger)">--</strong></div>
-        <div class="kpi warn"><span>Positivity Rate</span><strong id="kpi-rate">--</strong></div>
-    </div>
-
-    <input type="text" id="searchBox" class="search-bar"
-        placeholder="> QUERY PATIENT INDEX (BY NAME OR PHONE NUMBER)..." onkeyup="filterPatients()">
-
-    <div id="patientRegistry">
-        <div style="text-align: center; color: var(--muted); padding: 20px;">FETCHING SECURE DATA...</div>
+    <div class="modal-overlay" id="patientModal" onclick="if(event.target===this) closeModal()">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="patient-info" id="modalProfile">
+                </div>
+                <button class="close-btn" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-body" id="modalHistory">
+            </div>
+        </div>
     </div>
 
     <script>
@@ -209,88 +353,122 @@
                 const res = await fetch(`${API_URL}/api/malaria/dashboard`);
                 const data = await res.json();
 
-                // Update KPIs
                 document.getElementById('kpi-pat').innerText = data.total_patients;
                 document.getElementById('kpi-inf').innerText = data.total_tests;
                 document.getElementById('kpi-pos').innerText = data.positive_cases;
                 document.getElementById('kpi-rate').innerText = data.positivity_rate;
 
-                // Cache data in memory for instant searching
                 globalData.patients = data.patients;
                 globalData.visits = data.visits;
 
-                // Only re-render if the search box is currently empty (so we don't interrupt a user searching)
                 if (document.getElementById('searchBox').value === '') {
                     renderPatients(globalData.patients);
                 }
             } catch (err) { console.error('Poll failed:', err); }
         }
 
-        // Renders the HTML5 Accordion Cards
         function renderPatients(patients) {
             const container = document.getElementById('patientRegistry');
-
             if (patients.length === 0) {
-                container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--muted)">NO RECORDS FOUND</div>`;
+                container.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-light)">No patient records found.</div>`;
                 return;
             }
 
             container.innerHTML = patients.map(p => {
-                // Find all visits for this specific patient
-                const pVisits = globalData.visits.filter(v => v.patient_id === p.id);
+                // 1. Get all visits and sort by date descending
+                const pVisits = globalData.visits
+                    .filter(v => v.patient_id === p.id)
+                    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-                // If they have ever tested positive, flag the card in Red
-                const hasPos = pVisits.some(v => v.result.toLowerCase().includes('positive'));
-                const statusBadge = hasPos ? `<span style="color:var(--danger)">[ALERT: POSITIVE HISTORY]</span>` : `<span style="color:#22c55e">[CLEAR]</span>`;
+                // 2. Identify the status of the LATEST visit only
+                const latestVisit = pVisits[0];
+                const isPositive = latestVisit && latestVisit.result.toLowerCase().includes('positive');
+                const statusBadge = isPositive ? `<span class="badge pos">Positive</span>` : `<span class="badge neg">Negative</span>`;
 
-                // Build the table rows for their history
-                const visitRows = pVisits.map(v => `
-                    <tr>
-                        <td style="color:var(--muted)">${new Date(v.created_at).toISOString().split('T')[0]}</td>
-                        <td>T: ${v.temperature}°F | O2: ${v.spo2_reading}%</td>
-                        <td style="color:var(--muted)">${v.symptoms || '--'}</td>
-                        <td><span class="badge ${v.result.toLowerCase().includes('positive') ? 'pos' : 'neg'}">${v.result}</span></td>
-                        <td style="color:var(--muted); font-size:10px;">${v.reasoning}</td>
-                    </tr>
-                `).join('');
+                const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}&background=e2e8f0&color=334155&size=128&font-size=0.4&bold=true`;
 
                 return `
-                <details>
-                    <summary>
-                        <span><span style="color:var(--accent)">UUID: ${p.id.substring(0, 6)}</span> | ${p.name.toUpperCase()} | PH: ${p.phone}</span>
-                        <span>VISITS: ${pVisits.length} &nbsp; ${statusBadge}</span>
-                    </summary>
-                    <div class="details-content">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Date (UTC)</th>
-                                    <th>Vitals</th>
-                                    <th>Symptoms</th>
-                                    <th>Classification</th>
-                                    <th>Engine Logic Path</th>
-                                </tr>
-                            </thead>
-                            <tbody>${visitRows || '<tr><td colspan="5" style="text-align:center;">No visit records found.</td></tr>'}</tbody>
-                        </table>
+                <div class="patient-card" onclick="openModal('${p.id}')">
+                    <div class="patient-info">
+                        <img src="${avatarUrl}" class="avatar-img" alt="Profile">
+                        <div>
+                            <div style="font-size: 1.15rem; color: var(--text); font-weight: 600;">${p.name}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-light); margin-top: 4px;">Phone: ${p.phone} &nbsp;|&nbsp; ${pVisits.length} Passport Entries</div>
+                        </div>
                     </div>
-                </details>
-                `;
+                    <div>${statusBadge}</div>
+                </div>`;
             }).join('');
         }
 
-        // Zero-Latency Client-Side Search
         function filterPatients() {
             const query = document.getElementById('searchBox').value.toLowerCase();
-            const filtered = globalData.patients.filter(p =>
-                p.name.toLowerCase().includes(query) || p.phone.includes(query)
-            );
+            const filtered = globalData.patients.filter(p => p.name.toLowerCase().includes(query) || p.phone.includes(query));
             renderPatients(filtered);
         }
 
-        // Poll every 5 seconds to keep data fresh
-        setInterval(pollDatabase, 5000);
-        pollDatabase();
+        // --- MODAL LOGIC ---
+        function openModal(patientId) {
+            const p = globalData.patients.find(x => x.id === patientId);
+            // Sort visits by date descending so the newest is always index 0
+            const pVisits = globalData.visits
+                .filter(v => v.patient_id === patientId)
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}&background=e2e8f0&color=334155&size=128&font-size=0.4&bold=true`;
+
+            // Fix: Check status ONLY of the most recent visit (index 0)
+            const latestStatus = pVisits.length > 0 ? pVisits[0].result : "Unknown";
+            const isPos = latestStatus.toLowerCase().includes('positive');
+
+            // Build Header
+            document.getElementById('modalProfile').innerHTML = `
+                <img src="${avatarUrl}" class="avatar-img" style="width: 64px; height: 64px;" alt="Profile">
+                <div>
+                    <h2 style="margin: 0; font-size: 1.4rem; color: var(--text);">${p.name}</h2>
+                    <div style="color: var(--text-light); font-size: 0.9rem; margin-top: 4px;">
+                        📞 ${p.phone} &nbsp;|&nbsp; 📍 ${p.location || 'Unknown location'} <br>
+                        <span style="display:inline-block; margin-top: 8px;" class="badge ${isPos ? 'pos' : 'neg'}">Current Status: ${latestStatus}</span>
+                    </div>
+                </div>
+            `;
+
+
+            // Build History Table
+            const visitRows = pVisits.map(v => `
+                <tr>
+                    <td style="color:var(--text-light); font-weight: 500;">${new Date(v.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                    <td><img src="${API_URL}${v.image_url}" class="smear-thumb" onerror="this.src='https://via.placeholder.com/60?text=No+Image'"></td>
+                    <td><strong>${v.temperature}°F</strong><br><span style="color:var(--text-light)">SpO2: ${v.spo2_reading}%</span></td>
+                    <td style="color:var(--text-light)">${v.symptoms || '--'}</td>
+                    <td><span class="badge ${v.result.toLowerCase().includes('positive') ? 'pos' : 'neg'}">${v.result}</span></td>
+                    <td style="font-size: 0.8rem; color:var(--text-light);">${v.reasoning}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('modalHistory').innerHTML = `
+                <table>
+                    <thead><tr><th>Date</th><th>Smear Slide</th><th>Vitals</th><th>Symptoms</th><th>Diagnosis</th><th>Engine Trace</th></tr></thead>
+                    <tbody>${visitRows || '<tr><td colspan="6" style="text-align:center; padding: 40px;">No visit records available.</td></tr>'}</tbody>
+                </table>
+            `;
+
+            // Trigger Animation
+            document.getElementById('patientModal').classList.add('active');
+            document.body.style.overflow = 'hidden'; // Stop background from scrolling
+        }
+
+        function closeModal() {
+            document.getElementById('patientModal').classList.remove('active');
+            document.body.style.overflow = ''; // Restore scrolling
+        }
+
+        // Close modal if user presses Escape key
+        document.addEventListener('keydown', function (event) {
+            if (event.key === "Escape") closeModal();
+        });
+
+        setInterval(pollDatabase, 5000); pollDatabase();
     </script>
 </body>
 

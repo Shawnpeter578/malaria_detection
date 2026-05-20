@@ -1,53 +1,215 @@
-# Hackathon Backend Starter
+# 🦠 Malaria Detection AI
 
-Express + Supabase. Full CRUD. Ready to adapt.
+Malaria is still one of the world’s most dangerous diseases, especially in regions where quick medical testing is difficult to access. This project was built to explore how Artificial Intelligence and Computer Vision can help in detecting malaria from microscopic blood cell images.
 
-## Quick Start
+The application allows users to upload blood smear images, after which a deep learning model analyzes the image and predicts whether the cell is infected or uninfected. The system also provides a confidence score for the prediction.
+
+This project combines machine learning, backend development, and web technologies into one complete application.
+
+---
+
+# 🚀 Features
+
+- 🔬 Detect malaria from blood cell images
+- 🧠 Deep Learning powered image classification
+- 📊 Confidence score for predictions
+- 📁 Upload custom blood smear images
+- ⚡ Fast local predictions
+- 🌐 Full-stack web application
+- 💾 SQLite database integration
+- 📈 Designed for future improvements and deployment
+
+---
+
+# 🛠️ Technologies Used
+
+## Frontend
+- HTML
+- CSS
+- JavaScript
+
+## Backend
+- Node.js
+- Express.js
+
+## Machine Learning
+- Python
+- TensorFlow / Keras
+- OpenCV
+- NumPy
+
+## Database
+- SQLite
+
+---
+
+# 📂 Project Structure
+
+```bash
+malaria_detection/
+│
+├── client/                 # Frontend files
+├── server/                 # Backend API
+├── model/                  # Trained AI model
+├── dataset/                # Malaria dataset
+├── uploads/                # Uploaded images
+├── scripts/                # Python scripts
+├── database/               # SQLite database
+├── README.md
+└── package.json
+```
+
+---
+
+# 🧪 Dataset
+
+The model was trained using the malaria cell image dataset from Kaggle:
+
+https://www.kaggle.com/datasets/iarunava/cell-images-for-detecting-malaria
+
+The dataset contains thousands of:
+- Parasitized cell images
+- Uninfected cell images
+
+---
+
+# ⚙️ Installation
+
+## 1️⃣ Clone the Repository
+
+```bash
+git clone https://github.com/Shawnpeter578/malaria_detection.git
+cd malaria_detection
+```
+
+---
+
+## 2️⃣ Install Backend Dependencies
 
 ```bash
 npm install
-cp .env.example .env   # then fill in your Supabase keys
-npm run dev
 ```
 
-## Endpoints (default: items table)
+---
 
-| Method | Route               | What it does       |
-|--------|---------------------|--------------------|
-| GET    | /api/example        | Get all items      |
-| GET    | /api/example/:id    | Get one item       |
-| POST   | /api/example        | Create item        |
-| PATCH  | /api/example/:id    | Update item        |
-| DELETE | /api/example/:id    | Delete item        |
+## 3️⃣ Install Python Dependencies
 
-## Supabase Table Setup
-
-Run this SQL in your Supabase SQL editor:
-
-```sql
-create table items (
-  id uuid default gen_random_uuid() primary key,
-  name text not null,
-  description text,
-  created_at timestamp with time zone default now()
-);
+```bash
+pip install tensorflow opencv-python numpy pillow flask
 ```
 
-## Adapting for a New Feature
+---
 
-1. Create `/src/controllers/yourFeature.js`
-2. Create `/src/routes/yourFeature.js`
-3. Mount it in `index.js`:
-   ```js
-   const yourFeatureRoutes = require("./src/routes/yourFeature");
-   app.use("/api/your-feature", yourFeatureRoutes);
-   ```
+## 4️⃣ Configure Environment Variables
 
-That's the whole pattern. Repeat for every feature.
+Create a `.env` file in the root directory:
 
-## Deploy to Railway
+```env
+PORT=5000
+DATABASE_URL=sqlite.db
+```
 
-1. Push to GitHub
-2. New project on Railway → Deploy from GitHub
-3. Add env variables (SUPABASE_URL, SUPABASE_ANON_KEY)
-4. Done — live URL in under 5 minutes
+---
+
+# ▶️ Running the Project
+
+## Start the Backend Server
+
+```bash
+npm start
+```
+
+or
+
+```bash
+nodemon index.js
+```
+
+---
+
+## Run the Prediction Script
+
+```bash
+python predict.py
+```
+
+---
+
+# 🧠 Model Training
+
+The AI model was trained using Convolutional Neural Networks (CNNs), a type of deep learning architecture commonly used for image recognition tasks.
+
+Training techniques included:
+- Image augmentation
+- Rescaling
+- Rotation
+- Zoom transformations
+- Validation splitting
+
+The goal was to improve the model’s ability to recognize infected cells from different image variations.
+
+---
+
+# 📸 How It Works
+
+1. Upload a blood smear image
+2. The image is preprocessed
+3. The AI model analyzes the cell
+4. A prediction is generated:
+   - Infected
+   - Uninfected
+5. The confidence score is displayed to the user
+
+In simple terms, the project acts like a digital microscope powered by AI.
+
+---
+
+# 📈 Future Improvements
+
+Some ideas planned for future versions:
+
+- 🏥 Doctor dashboard
+- ☁️ Cloud deployment
+- 📱 Mobile application
+- 📊 Advanced analytics
+- 🔍 Detection for multiple diseases
+- 🤖 Improved model accuracy using advanced architectures
+
+---
+
+# 🤝 Contributing
+
+Contributions are welcome.
+
+If you would like to improve the project:
+
+1. Fork the repository
+2. Create a new branch
+3. Make your changes
+4. Commit and push your updates
+5. Open a Pull Request
+
+---
+
+# 📜 License
+
+This project is licensed under the MIT License.
+
+---
+
+# 👨‍💻 Author
+
+Made by Shawn Peter
+
+GitHub:
+https://github.com/Shawnpeter578
+
+---
+
+# ⭐ Support
+
+If you found this project interesting or helpful:
+
+- Give the repository a star ⭐
+- Share it with others
+- Build something even better from it 🚀

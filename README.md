@@ -199,7 +199,7 @@ This project is licensed under the MIT License.
 
 # 👨‍💻 Author
 
-Made by Shawn Peter
+Made by Shawn, Chrisel, Aaron, Grace, Cyrus
 
 GitHub:
 https://github.com/Shawnpeter578

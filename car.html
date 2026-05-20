@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Clinical Contact PPG (Open-Source Spec)</title>
+    <style>
+        :root {
+            --bg: #111827; --panel: #1f2937; --text: #f9fafb;
+            --accent: #3b82f6; --success: #10b981; --danger: #ef4444; --border: #374151;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg); color: var(--text);
+            margin: 0; padding: 20px; display: flex; flex-direction: column; gap: 20px;
+        }
+        .header { border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .header h1 { margin: 0; font-size: 1.5rem; color: var(--accent); }
+        .header p { margin: 5px 0 0 0; font-size: 0.85rem; color: #9ca3af; }
+        
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 15px; }
+        
+        .metric-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; margin-bottom: 5px; }
+        .metric-value { font-size: 3rem; font-weight: bold; font-variant-numeric: tabular-nums; line-height: 1; }
+        
+        #waveform-container { width: 100%; height: 150px; background: #000; border-radius: 6px; overflow: hidden; position: relative; margin-top: 15px; border: 1px solid var(--border); }
+        canvas { width: 100%; height: 100%; display: block; }
+        
+        .progress-bar { width: 100%; height: 6px; background: var(--border); margin-top: 15px; border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; width: 0%; background: var(--success); transition: width 0.1s linear; }
+
+        .btn {
+            background: var(--success); color: #fff; border: none; padding: 15px; width: 100%;
+            border-radius: 6px; font-weight: bold; font-size: 1rem; cursor: pointer; margin-top: 20px;
+        }
+        .btn:disabled { background: var(--border); color: #6b7280; cursor: not-allowed; }
+        
+        /* The video feed must be rendered but can be hidden off-screen to save UI space */
+        #video-feed { position: absolute; opacity: 0; pointer-events: none; }
+        #proc-canvas { display: none; }
+        
+        .status { font-size: 0.9rem; margin-top: 10px; text-align: center; height: 20px; color: var(--accent); font-weight: 500; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Contact PPG Engine</h1>
+        <p>DSP Pipeline: Detrending + Peak Detection + AC/DC Ratio</p>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <div class="metric-title">Heart Rate (PR)</div>
+            <div class="metric-value" id="val-bpm" style="color: var(--success);">--</div>
+            <div style="color: #9ca3af; font-size: 0.9rem;">BPM</div>
+        </div>
+        <div class="card">
+            <div class="metric-title">Est. SpO2 (Ratio)</div>
+            <div class="metric-value" id="val-spo2" style="color: var(--accent);">--</div>
+            <div style="color: #9ca3af; font-size: 0.9rem;">%</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="metric-title" style="display: flex; justify-content: space-between;">
+            <span>Filtered Pleth Waveform (Green Channel)</span>
+            <span id="signal-quality"></span>
+        </div>
+        <div id="waveform-container">
+            <canvas id="waveform"></canvas>
+        </div>
+        <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
+        <div id="status-msg" class="status">Press start and cover the rear camera + flash.</div>
+    </div>
+
+    <button id="btn-start" class="btn">INITIALIZE 20s SCAN</button>
+
+    <!-- Hidden elements required for processing -->
+    <video id="video-feed" autoplay playsinline></video>
+    <canvas id="proc-canvas"></canvas>
+
+    <script>
+        const UI = {
+            video: document.getElementById('video-feed'),
+            procCanvas: document.getElementById('proc-canvas'),
+            waveCanvas: document.getElementById('waveform'),
+            bpm: document.getElementById('val-bpm'),
+            spo2: document.getElementById('val-spo2'),
+            startBtn: document.getElementById('btn-start'),
+            progress: document.getElementById('progress-fill'),
+            status: document.getElementById('status-msg'),
+            quality: document.getElementById('signal-quality')
+        };
+
+        const procCtx = UI.procCanvas.getContext('2d', { willReadFrequently: true });
+        const waveCtx = UI.waveCanvas.getContext('2d');
+
+        // Settings
+        const DURATION_MS = 20000;
+        const TARGET_FPS = 30; 
+        
+        let stream = null;
+        let isRunning = false;
+        let animFrame;
+        let startTime = 0;
+
+        // DSP Buffers
+        let rawGreen = []; // Best for Heart Rate
+        let rawRed = [];   // Used for SpO2
+        let rawBlue = [];  // Used for SpO2 fallback
+        let timeStamps = [];
+        let filteredWaveform = new Array(150).fill(0);
+
+        function resizeCanvas() {
+            UI.waveCanvas.width = UI.waveCanvas.parentElement.clientWidth;
+            UI.waveCanvas.height = UI.waveCanvas.parentElement.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        async function startEngine() {
+            try {
+                // Request camera with advanced features
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: "environment",
+                        width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: TARGET_FPS },
+                        advanced: [{ torch: true }] 
+                    }
+                });
+                
+                UI.video.srcObject = stream;
+                
+                // Force torch on if browser blocked the initial constraint
+                const track = stream.getVideoTracks()[0];
+                if (track.getCapabilities().torch) {
+                    try { await track.applyConstraints({ advanced: [{ torch: true }] }); } catch(e){}
+                }
+
+                UI.startBtn.disabled = true;
+                UI.startBtn.textContent = "SCANNING...";
+                UI.bpm.textContent = "--";
+                UI.spo2.textContent = "--";
+                
+                rawGreen = []; rawRed = []; rawBlue = []; timeStamps = [];
+                isRunning = true;
+                startTime = performance.now();
+                
+                requestAnimationFrame(processFrame);
+
+            } catch (err) {
+                UI.status.textContent = "Error: " + err.message;
+                UI.status.style.color = "var(--danger)";
+            }
+        }
+
+        function stopEngine() {
+            isRunning = false;
+            if (stream) {
+                stream.getTracks().forEach(track => {
+                    if (track.getCapabilities().torch) track.applyConstraints({advanced: [{torch: false}]}).catch(()=>{});
+                    track.stop();
+                });
+            }
+            UI.startBtn.disabled = false;
+            UI.startBtn.textContent = "START NEW SCAN";
+            UI.progress.style.width = '0%';
+        }
+
+        function processFrame(now) {
+            if (!isRunning) return;
+
+            if (UI.video.videoWidth > 0) {
+                UI.procCanvas.width = UI.video.videoWidth;
+                UI.procCanvas.height = UI.video.videoHeight;
+                procCtx.drawImage(UI.video, 0, 0, UI.procCanvas.width, UI.procCanvas.height);
+                
+                // 1. Spatial Averaging (ROI: 50x50 center pixels)
+                const sx = (UI.procCanvas.width / 2) - 25;
+                const sy = (UI.procCanvas.height / 2) - 25;
+                const frame = procCtx.getImageData(sx, sy, 50, 50).data;
+
+                let rSum = 0, gSum = 0, bSum = 0;
+                const pixels = frame.length / 4;
+                for (let i = 0; i < frame.length; i += 4) {
+                    rSum += frame[i]; gSum += frame[i+1]; bSum += frame[i+2];
+                }
+                const avgR = rSum / pixels;
+                const avgG = gSum / pixels;
+                const avgB = bSum / pixels;
+
+                // 2. Hardware Validation (Is the finger present?)
+                if (avgR < 150) {
+                    UI.status.textContent = "FINGER REMOVED. Cover the camera and flash.";
+                    UI.status.style.color = "var(--danger)";
+                    UI.quality.textContent = "NO SIGNAL";
+                    startTime = now; // Reset timer
+                    rawGreen = []; rawRed = []; rawBlue = []; timeStamps = [];
+                } else {
+                    UI.status.textContent = "Recording PPG Data... Hold perfectly still.";
+                    UI.status.style.color = "var(--success)";
+                    UI.quality.textContent = "SIGNAL ACQUIRED";
+                    
+                    rawGreen.push(avgG);
+                    rawRed.push(avgR);
+                    rawBlue.push(avgB);
+                    timeStamps.push(now);
+
+                    // 3. Real-Time DSP Detrending for Visualization
+                    // We use a "Difference of Moving Averages" to remove camera baseline wander
+                    if (rawGreen.length > 30) {
+                        const fastMA = rawGreen.slice(-5).reduce((a,b)=>a+b)/5;
+                        const slowMA = rawGreen.slice(-30).reduce((a,b)=>a+b)/30;
+                        const detrended = fastMA - slowMA;
+                        
+                        // Push inverted signal (blood absorbs green, so drop in green = peak systole)
+                        filteredWaveform.push(-detrended);
+                        if (filteredWaveform.length > UI.waveCanvas.width) filteredWaveform.shift();
+                        drawWaveform();
+                    }
+
+                    // 4. Progress Tracking
+                    const elapsed = now - startTime;
+                    UI.progress.style.width = Math.min((elapsed / DURATION_MS) * 100, 100) + '%';
+
+                    if (elapsed >= DURATION_MS) {
+                        calculateResults();
+                        return; // End loop
+                    }
+                }
+            }
+            animFrame = requestAnimationFrame(processFrame);
+        }
+
+        // =========================================================
+        // DSP ALGORITHMS (What the open-source libraries actually do)
+        // =========================================================
+        // =========================================================
+        // DSP ALGORITHMS (Updated with Physiological Refractory Period)
+        // =========================================================
+        function calculateResults() {
+            UI.status.textContent = "Processing algorithms...";
+
+            // 1. Detrend the entire green array
+            let detrendedGreen = [];
+            for (let i = 30; i < rawGreen.length; i++) {
+                let fast = rawGreen.slice(i-5, i).reduce((a,b)=>a+b)/5;
+                let slow = rawGreen.slice(i-30, i).reduce((a,b)=>a+b)/30;
+                detrendedGreen.push(slow - fast);
+            }
+
+            // 2. Find Peaks (Zero-crossing with Refractory Period)
+            let peaks = 0;
+            let isAboveMean = false;
+            let lastPeakTime = 0;
+            const REFRACTORY_PERIOD_MS = 330; // Max human HR cap ~180 BPM
+
+            for (let i = 1; i < detrendedGreen.length; i++) {
+                if (detrendedGreen[i] > 0 && !isAboveMean) {
+                    isAboveMean = true;
+                    
+                    // Match the detrended index back to the actual timestamp
+                    let currentTime = timeStamps[i + 30]; 
+                    
+                    // Only count the beat if enough time has passed since the last one
+                    if (currentTime - lastPeakTime > REFRACTORY_PERIOD_MS) {
+                        peaks++;
+                        lastPeakTime = currentTime;
+                    }
+                } else if (detrendedGreen[i] < 0) {
+                    isAboveMean = false;
+                }
+            }
+
+            // 3. Calculate BPM
+            const recordedMinutes = (timeStamps[timeStamps.length-1] - timeStamps[30]) / 60000;
+            let bpm = Math.round(peaks / recordedMinutes);
+
+            // --- B. SPO2 ESTIMATION (AC/DC Ratio of Ratios) ---
+            const calculateSignalStats = (signalArray) => {
+                const mean = signalArray.reduce((a,b) => a+b, 0) / signalArray.length;
+                let sqDiff = 0;
+                for (let val of signalArray) sqDiff += Math.pow(val - mean, 2);
+                const stdDev = Math.sqrt(sqDiff / signalArray.length);
+                return { dc: mean, ac: stdDev };
+            };
+
+            const statsRed = calculateSignalStats(rawRed);
+            const statsBlue = calculateSignalStats(rawBlue);
+
+            const ratio = (statsRed.ac / statsRed.dc) / (statsBlue.ac / statsBlue.dc);
+            let spo2 = Math.round(110 - (25 * ratio));
+            
+            if (spo2 > 100) spo2 = 99;
+            if (spo2 < 85 || isNaN(spo2)) spo2 = "--";
+
+            // --- Output Validation ---
+            if (bpm < 40 || bpm > 200) {
+                UI.bpm.textContent = "ERR";
+                UI.spo2.textContent = "ERR";
+                UI.status.textContent = "Data corrupted by movement. Try again.";
+                UI.status.style.color = "var(--danger)";
+            } else {
+                UI.bpm.textContent = bpm;
+                UI.spo2.textContent = spo2;
+                UI.status.textContent = "Analysis Complete.";
+            }
+
+            stopEngine();
+        }
+        
+
+        function drawWaveform() {
+            waveCtx.clearRect(0, 0, UI.waveCanvas.width, UI.waveCanvas.height);
+            
+            // Find max absolute value to auto-scale the graph
+            const validData = filteredWaveform.filter(v => v !== 0);
+            if (validData.length === 0) return;
+            const maxVal = Math.max(...validData.map(Math.abs));
+            const scale = maxVal === 0 ? 1 : maxVal * 1.2; 
+
+            waveCtx.beginPath();
+            waveCtx.strokeStyle = 'var(--success)';
+            waveCtx.lineWidth = 2.5;
+            waveCtx.lineJoin = 'round';
+
+            const centerY = UI.waveCanvas.height / 2;
+
+            for (let i = 0; i < filteredWaveform.length; i++) {
+                const x = i * (UI.waveCanvas.width / filteredWaveform.length);
+                // Scale value between -1 and 1, then map to canvas height
+                const normalizedY = filteredWaveform[i] / scale;
+                const y = centerY - (normalizedY * centerY);
+                
+                if (i === 0) waveCtx.moveTo(x, y);
+                else waveCtx.lineTo(x, y);
+            }
+            waveCtx.stroke();
+        }
+
+        UI.startBtn.addEventListener('click', () => {
+            if (!isRunning) startEngine();
+        });
+    </script>
+</body>
+</html>

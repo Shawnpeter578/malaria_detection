@@ -4,88 +4,516 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ParaScope | Malaria Triage</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script>
-        tailwind.config = { theme: { extend: { colors: { primary: '#1A73E8', surface: '#F8F9FA' } } } }
-    </script>
+    <title>ParaScope | Clinical Field Client</title>
+    <style>
+        :root {
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --border: #cbd5e1;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --brand-blue: #0284c7;
+            --brand-blue-hover: #0369a1;
+            --alert-red: #dc2626;
+            --safe-green: #059669;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px 15px;
+            font-size: 14px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--surface);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            padding: 24px;
+            transition: all 0.3s ease;
+        }
+
+        .header {
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 16px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.25rem;
+            color: var(--text-main);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .header p {
+            margin: 4px 0 0 0;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .section-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+            font-weight: 700;
+            margin: 0 0 12px 0;
+        }
+
+        /* Input Styling */
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-main);
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="tel"] {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 16px;
+            font-family: inherit;
+            font-size: 15px;
+            color: var(--text-main);
+            background: #f8fafc;
+            transition: all 0.2s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--brand-blue);
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        /* Status Banners */
+        .status-banner {
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-top: -8px;
+            margin-bottom: 16px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            border-left: 4px solid transparent;
+        }
+
+        .status-banner.linked {
+            background: #ecfdf5;
+            color: #065f46;
+            border-left-color: var(--safe-green);
+            display: flex;
+        }
+
+        .status-banner.new {
+            background: #f0f9ff;
+            color: #0369a1;
+            border-left-color: var(--brand-blue);
+            display: flex;
+        }
+
+        /* Professional Chips */
+        .chip-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .chip {
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: #f8fafc;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s;
+            color: var(--text-muted);
+        }
+
+        .chip.active {
+            background: #e0f2fe;
+            color: var(--brand-blue);
+            border-color: var(--brand-blue);
+        }
+
+        /* Professional Dropzone */
+        .file-drop {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 24px 20px;
+            text-align: center;
+            background: #f8fafc;
+            cursor: pointer;
+            margin-bottom: 24px;
+            transition: all 0.2s ease;
+            display: block;
+        }
+
+        .file-drop:hover {
+            border-color: var(--brand-blue);
+            background: #f0f9ff;
+        }
+
+        .file-drop input[type="file"] {
+            display: none;
+        }
+
+        .file-drop .drop-title {
+            margin: 0 0 4px 0;
+            color: var(--text-main);
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .file-drop .drop-subtitle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .file-drop.success {
+            border-color: var(--safe-green);
+            background: #ecfdf5;
+            border-style: solid;
+        }
+
+        .file-drop.success .drop-title {
+            color: var(--safe-green);
+        }
+
+        button.primary {
+            width: 100%;
+            padding: 14px;
+            background: var(--brand-blue);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button.primary:hover {
+            background: var(--brand-blue-hover);
+        }
+
+        button.primary:disabled {
+            background: var(--border);
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        /* Continuous Result Feed */
+        .result-panel {
+            display: none;
+            flex-direction: column;
+            gap: 16px;
+            animation: slideDown 0.4s ease-out forwards;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-box {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            border-radius: 8px;
+            border-left: 4px solid transparent;
+            background: #f8fafc;
+            border-top: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .result-box.pos {
+            border-left-color: var(--alert-red);
+            background: #fef2f2;
+        }
+
+        .result-box.neg {
+            border-left-color: var(--safe-green);
+            background: #ecfdf5;
+        }
+
+        .res-classification {
+            font-size: 1.4rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .pos .res-classification {
+            color: var(--alert-red);
+        }
+
+        .neg .res-classification {
+            color: var(--safe-green);
+        }
+
+        .res-meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .conf-badge {
+            padding: 4px 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .action-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        button.secondary {
+            flex: 1;
+            padding: 12px;
+            background: var(--surface);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        button.secondary:hover {
+            background: #f1f5f9;
+        }
+    </style>
 </head>
 
-<body class="bg-surface text-slate-900 min-h-screen">
+<body>
+    <div class="container">
 
-    <header
-        class="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-sm">
-        <div class="flex items-center gap-3">
-            <i data-lucide="activity" class="text-primary w-7 h-7"></i>
-            <h1 class="text-lg font-semibold tracking-tight text-slate-700">ParaScope Triage</h1>
-        </div>
-        <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-primary font-bold text-xs">P
-        </div>
-    </header>
+        <div class="card" id="formCard">
+            <div class="header">
+                <h1>ParaScope Field Client</h1>
+                <p>Clinical Data Acquisition Protocol</p>
+            </div>
 
-    <main class="max-w-2xl mx-auto p-4 space-y-6">
+            <div class="section-label">Patient Identity</div>
+            <label>Contact Number</label>
+            <input type="tel" id="pPhone" placeholder="10-Digit ID" maxlength="10" oninput="autoLookup(this.value)">
 
-        <section class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4 flex items-center gap-2">
-                <i data-lucide="user" class="w-4 h-4"></i> Patient Information
-            </h2>
-            <div class="space-y-4">
-                <input type="text" id="pName" placeholder="Full Name"
-                    class="w-full bg-slate-50 px-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-blue-200 focus:border-primary outline-none transition">
-                <div class="grid grid-cols-2 gap-4">
-                    <input type="number" id="pPhone" placeholder="Phone"
-                        class="bg-slate-50 px-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-blue-200 outline-none">
-                    <input type="text" id="pLoc" placeholder="Village"
-                        class="bg-slate-50 px-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-blue-200 outline-none">
+            <div id="passportStatus" class="status-banner"></div>
+
+            <div class="grid-2">
+                <div><label>Legal Name</label><input type="text" id="pName" placeholder="Full Name"></div>
+                <div><label>Zone / Location</label><input type="text" id="pLoc" placeholder="District Block"></div>
+            </div>
+
+            <div class="section-label" style="margin-top: 10px;">Clinical Vitals</div>
+            <div class="grid-2">
+                <div>
+                    <label>Core Temp (°F)</label>
+                    <input type="number" id="pTemp" placeholder="e.g. 98.6" step="any">
+                </div>
+                <div>
+                    <label>Blood SpO2 (%)</label>
+                    <input type="number" id="pSpo2" placeholder="e.g. 98" step="any">
                 </div>
             </div>
-        </section>
 
-        <section class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4 flex items-center gap-2">
-                <i data-lucide="thermometer" class="w-4 h-4"></i> Clinical Vitals
-            </h2>
-            <input type="number" id="pTemp" placeholder="Temperature (°F)"
-                class="w-full bg-slate-50 px-4 py-3 rounded-lg border border-slate-200 mb-6 outline-none">
-
-            <p class="text-sm font-medium mb-3">Reported Symptoms</p>
-            <div class="flex flex-wrap gap-2" id="symptomGrid">
-                <button class="px-4 py-2 rounded-full border border-slate-300 text-sm hover:bg-blue-50 transition"
-                    onclick="this.classList.toggle('bg-blue-600'); this.classList.toggle('text-white')">Fever >
-                    48h</button>
-                <button class="px-4 py-2 rounded-full border border-slate-300 text-sm hover:bg-blue-50 transition"
-                    onclick="this.classList.toggle('bg-blue-600'); this.classList.toggle('text-white')">Chills</button>
-                <button class="px-4 py-2 rounded-full border border-slate-300 text-sm hover:bg-blue-50 transition"
-                    onclick="this.classList.toggle('bg-blue-600'); this.classList.toggle('text-white')">Headache</button>
+            <label style="margin-top: 4px;">Symptomatic Flags</label>
+            <div class="chip-group">
+                <div class="chip" onclick="this.classList.toggle('active')">Fever</div>
+                <div class="chip" onclick="this.classList.toggle('active')">Chills</div>
+                <div class="chip" onclick="this.classList.toggle('active')">Nausea</div>
             </div>
-        </section>
 
-        <section class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-center">
-            <h2
-                class="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4 text-left flex items-center gap-2">
-                <i data-lucide="camera" class="w-4 h-4"></i> Diagnostic Image
-            </h2>
-            <label for="pImage" class="block cursor-pointer group">
-                <div
-                    class="border-2 border-dashed border-slate-200 rounded-xl py-8 group-hover:border-primary transition">
-                    <i data-lucide="plus-circle" class="w-8 h-8 text-slate-400 mx-auto mb-2"></i>
-                    <p class="text-sm font-medium text-slate-600">Attach Smear/RDT Image</p>
-                </div>
+            <div class="section-label">Diagnostic Telemetry</div>
+            <label class="file-drop" id="dropZone">
+                <div class="drop-title" id="dropTitle">[ ATTACH SMEAR SLIDE ]</div>
+                <div class="drop-subtitle" id="dropText">Microscopy Image Upload</div>
+                <input type="file" id="pImage" accept="image/*" onchange="updateFileUI(this)">
             </label>
-            <input type="file" id="pImage" accept="image/*" class="hidden">
-            <div id="fileName" class="mt-2 text-xs font-semibold text-primary"></div>
-        </section>
 
-        <button id="submitBtn" onclick="submitData()"
-            class="w-full bg-primary text-white py-4 rounded-xl font-bold hover:bg-blue-600 shadow-lg shadow-blue-200 transition">
-            Run Edge AI Inference
-        </button>
-    </main>
+            <button class="primary" id="submitBtn" onclick="submitPayload()">Transmit & Analyze</button>
+        </div>
+
+        <div id="resultFeed" class="result-panel">
+            <div class="section-label" style="margin-bottom: 0;">Diagnostic Output</div>
+
+            <div class="result-box" id="resultCard">
+                <div>
+                    <div class="res-classification" id="resClass">--</div>
+                    <div class="res-meta">Engine Logic: <span id="resReason">--</span></div>
+                </div>
+                <div class="conf-badge" id="resConf">--%</div>
+            </div>
+
+            <div class="action-row">
+                <button class="secondary" onclick="resetForSamePatient()">Clear Vitals (Same Patient)</button>
+                <button class="primary" onclick="resetAll()">End Session (New Patient)</button>
+            </div>
+        </div>
+
+    </div>
 
     <script>
-        lucide.createIcons();
-        // ... (Keep your submitData() logic here)
+        const API_URL = 'http://localhost:3000/api/malaria';
+
+        function updateFileUI(input) {
+            if (input.files && input.files[0]) {
+                document.getElementById('dropTitle').innerText = 'SLIDE SECURED';
+                document.getElementById('dropText').innerText = input.files[0].name;
+                document.getElementById('dropZone').classList.add('success');
+            }
+        }
+
+        async function autoLookup(phone) {
+            const status = document.getElementById('passportStatus');
+
+            if (phone.length !== 10) {
+                status.className = 'status-banner';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/patient/${phone}`);
+                const data = await res.json();
+
+                if (data.found) {
+                    document.getElementById('pName').value = data.patient.name;
+                    document.getElementById('pLoc').value = data.patient.location;
+                    status.innerHTML = `<span>RECORD LINKED</span> <span>VISITS: ${data.history.length}</span>`;
+                    status.className = 'status-banner linked';
+                } else {
+                    status.innerHTML = `<span>NO PRIOR RECORD</span> <span>NEW PASSPORT WILL BE GENERATED</span>`;
+                    status.className = 'status-banner new';
+                }
+            } catch (err) { console.error("Lookup failed:", err); }
+        }
+
+        async function submitPayload() {
+            const name = document.getElementById('pName').value;
+            const phone = document.getElementById('pPhone').value;
+            const location = document.getElementById('pLoc').value;
+            const temp = document.getElementById('pTemp').value;
+            const spo2 = document.getElementById('pSpo2').value;
+            const file = document.getElementById('pImage').files[0];
+            const btn = document.getElementById('submitBtn');
+
+            // Removed all strict min/max value validation.
+            if (!phone || phone.length !== 10) {
+                alert("Protocol Error: Please enter a valid 10-digit contact number.");
+                return;
+            }
+            if (!file) {
+                alert("Protocol Error: Microscopy Image is mandatory.");
+                return;
+            }
+
+            const activeChips = document.querySelectorAll('.chip.active');
+            const symptoms = Array.from(activeChips).map(c => c.innerText).join(', ');
+
+            btn.disabled = true;
+            btn.innerText = "Processing Telemetry...";
+
+            try {
+                const fd = new FormData();
+                fd.append('name', name); fd.append('phone', phone); fd.append('location', location);
+                fd.append('temperature', temp); fd.append('spo2_reading', spo2); fd.append('symptoms', symptoms);
+                fd.append('smearImage', file);
+
+                const res = await fetch(`${API_URL}/visit`, { method: 'POST', body: fd });
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.error || "Server disconnect.");
+
+                document.getElementById('resultFeed').style.display = 'flex';
+
+                const card = document.getElementById('resultCard');
+                const classEl = document.getElementById('resClass');
+
+                classEl.innerText = data.result;
+                card.className = `result-box ${data.result.toLowerCase().includes('positive') ? 'pos' : 'neg'}`;
+
+                document.getElementById('resConf').innerText = data.confidence + '%';
+                document.getElementById('resReason').innerText = data.reasoning;
+
+                document.getElementById('resultFeed').scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+            } catch (err) { alert(err.message); }
+            finally { btn.disabled = false; btn.innerText = "Transmit & Analyze"; }
+        }
+
+        function resetForSamePatient() {
+            document.getElementById('pTemp').value = '';
+            document.getElementById('pSpo2').value = '';
+            document.getElementById('pImage').value = '';
+            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+
+            const drop = document.getElementById('dropZone');
+            drop.classList.remove('success');
+            document.getElementById('dropTitle').innerText = '[ ATTACH SMEAR SLIDE ]';
+            document.getElementById('dropText').innerText = 'Microscopy Image Upload';
+
+            document.getElementById('resultFeed').style.display = 'none';
+        }
+
+        function resetAll() {
+            resetForSamePatient();
+            document.getElementById('pPhone').value = '';
+            document.getElementById('pName').value = '';
+            document.getElementById('pLoc').value = '';
+            document.getElementById('passportStatus').className = 'status-banner';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     </script>
 </body>
 

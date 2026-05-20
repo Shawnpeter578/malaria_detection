@@ -8,7 +8,7 @@ const FormData = require("form-data");
 const dbPath = path.join(__dirname, "../../malaria.db");
 const db = new sqlite3.Database(dbPath);
 
-// SCHEMA UPDATED FOR MEDICAL PASSPORT
+// SCHEMA DEFINITION
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS patients (
     id TEXT PRIMARY KEY,
@@ -40,7 +40,7 @@ const dbAll = (query, params) => new Promise((resolve, reject) => {
   db.all(query, params, (err, rows) => { if (err) reject(err); else resolve(rows); });
 });
 
-// 1. LOOKUP PATIENT (The Passport Fetcher)
+// 1. LOOKUP PATIENT
 const lookupPatient = async (req, res) => {
   try {
     const phone = req.params.phone;
@@ -55,26 +55,28 @@ const lookupPatient = async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 };
 
-// 2. ONE-SHOT SUBMIT (Handles Demographics, Vitals, and AI all at once)
+// 2. SUBMIT VISIT - The Fail-Safe Override Engine
 const submitVisit = async (req, res) => {
   const { name, phone, location, temperature, spo2_reading, symptoms } = req.body;
   const imageFile = req.file; 
 
-  if (!phone || !imageFile) return res.status(400).json({ error: "Phone and image required" });
+  if (!phone || !imageFile) {
+    return res.status(400).json({ error: "Phone number and slide image are required." });
+  }
 
   try {
-    // --- PASSPORT LOGIC: Find or Create Patient ---
+    // --- PASSPORT LOGIC ---
     let patient_id;
     const existing = await dbAll(`SELECT id FROM patients WHERE phone = ?`, [phone]);
     
     if (existing.length > 0) {
-      patient_id = existing[0].id; // Returning patient
+      patient_id = existing[0].id;
     } else {
-      patient_id = crypto.randomUUID(); // New patient
+      patient_id = crypto.randomUUID();
       await dbRun(`INSERT INTO patients (id, phone, name, location) VALUES (?, ?, ?, ?)`, [patient_id, phone, name, location]);
     }
 
-    // --- AI INFERENCE ---
+    // --- TIER 1: AI INFERENCE ENGINE ---
     const image_url = `/uploads/${imageFile.filename}`;
     const pyFormData = new FormData();
     pyFormData.append("image", fs.createReadStream(imageFile.path));
@@ -84,55 +86,68 @@ const submitVisit = async (req, res) => {
     let { result, confidence } = aiResponse.data;
     let reasoning = "Image-based AI Inference";
 
-    // --- CLINICAL ENGINE ---
-    if (result === "negative") {
+    // --- TIER 2: FAIL-SAFE OVERRIDE ENGINE ---
+    // If the AI says Negative, we double check the vitals.
+    if (result.toLowerCase() === "negative") {
+      let isAbnormal = false;
       let riskScore = 0;
-      const t = Number(temperature); const o2 = Number(spo2_reading); const symp = symptoms || "";
+      
+      const t = Number(temperature);
+      const o2 = Number(spo2_reading);
+      const symp = symptoms || "";
+      
+      // 1. Check for clinical risk (High Fever / Low Oxygen)
       if (t > 100.5) riskScore += 2;
       if (o2 < 94) riskScore += 3;
       if (symp.includes("Fever")) riskScore += 3;
       if (symp.includes("Chills")) riskScore += 2;
+      
+      if (riskScore >= 5) isAbnormal = true;
 
-      if (riskScore >= 5) {
+      // 2. Check for impossible/sensor-glitch vitals (e.g. 50°F)
+      if (t < 90 || t > 110 || o2 < 50) isAbnormal = true;
+
+      // If anything is abnormal, override the AI
+      if (isAbnormal) {
         result = "Presumptive Positive";
         confidence = 85; 
-        reasoning = `Clinical Override (Risk Score: ${riskScore}/10)`;
+        reasoning = `Clinical Override (Abnormal Vitals Detected)`;
       }
     }
 
-    // --- SAVE THE VISIT RECORD ---
+    // --- PERSIST VISIT DATA ---
     const visit_id = crypto.randomUUID();
     await dbRun(
       `INSERT INTO visits (id, patient_id, temperature, spo2_reading, symptoms, result, confidence, reasoning, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [visit_id, patient_id, temperature, spo2_reading, symptoms, result, confidence, reasoning, image_url]
     );
 
-    // Fetch full history to send back to ASHA screen
     const fullHistory = await dbAll(`SELECT * FROM visits WHERE patient_id = ? ORDER BY created_at DESC`, [patient_id]);
     res.status(201).json({ result, confidence, reasoning, history: fullHistory });
 
-  } catch (error) { res.status(500).json({ error: "Server Error: " + error.message }); }
+  } catch (error) { 
+    res.status(500).json({ error: "Diagnostic Pipeline Error: " + error.message }); 
+  }
 };
 
+// 3. DASHBOARD ANALYTICS
 const getDashboard = async (req, res) => {
   try {
-    // 1. Fetch all patients and all visits independently
     const patients = await dbAll(`SELECT * FROM patients ORDER BY created_at DESC`);
     const visits = await dbAll(`SELECT * FROM visits ORDER BY created_at DESC`);
     
-    // 2. Calculate KPIs
     const positive = visits.filter(v => v.result.toLowerCase().includes("positive")).length;
     const rate = visits.length > 0 ? ((positive / visits.length) * 100).toFixed(1) : 0;
 
-    // 3. Send the raw data arrays directly to the frontend for client-side rendering
     res.json({ 
       total_patients: patients.length, 
       total_tests: visits.length, 
       positive_cases: positive, 
       positivity_rate: `${rate}%`, 
-      patients: patients, // The frontend will use this to build the cards
-      visits: visits      // The frontend will nest these inside the cards
+      patients: patients, 
+      visits: visits 
     });
   } catch (error) { res.status(500).json({ error: error.message }); }
 };
+
 module.exports = { lookupPatient, submitVisit, getDashboard };

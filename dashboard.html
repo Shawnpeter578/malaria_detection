@@ -213,7 +213,7 @@
         <div style="color: ${t.temperature > 100 ? '#fca5a5' : '#e4e4e7'}">T: ${t.temperature}°F</div>
         <div style="color: ${t.spo2_reading < 94 ? '#fca5a5' : '#a1a1aa'}">O2: ${t.spo2_reading}%</div>
     </td>
-    <td><span class="badge ${t.result === 'positive' ? 'pos' : 'neg'}">${t.result}</span></td>
+   <td><span class="badge ${t.result.toLowerCase().includes('positive') ? 'pos' : 'neg'}">${t.result}</span></td>
     <td>${t.confidence}%</td>
 </tr>
 `

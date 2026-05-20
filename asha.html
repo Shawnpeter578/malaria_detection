@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ParaScope Field Client v1.2</title>
+    <title>ParaScope Field Client v1.3</title>
     <style>
         :root {
             --bg: #f4f4f5;
@@ -104,6 +104,7 @@
             gap: 6px;
         }
 
+        /* Notice the 'Fever' and 'Chills' exactly match what the Node backend is looking for */
         .chip {
             padding: 4px 10px;
             border: 1px solid var(--border);
@@ -212,7 +213,7 @@
                 </div>
                 <label style="margin-top: 5px;">Symptom Flags</label>
                 <div class="chip-group">
-                    <div class="chip" onclick="this.classList.toggle('active')">Fever >48h</div>
+                    <div class="chip" onclick="this.classList.toggle('active')">Fever</div>
                     <div class="chip" onclick="this.classList.toggle('active')">Chills</div>
                     <div class="chip" onclick="this.classList.toggle('active')">Nausea</div>
                 </div>
@@ -234,7 +235,7 @@
                 <div class="result-row"><span>AI Classification:</span> <span id="resClass"
                         style="text-transform: uppercase;"></span></div>
                 <div class="result-row"><span>Confidence:</span> <span id="resConf"></span></div>
-                <div class="result-row"><span>Detected Strain:</span> <span id="resStrain"></span></div>
+                <div class="result-row"><span>Logic Path:</span> <span id="resReason"></span></div>
             </fieldset>
             <button onclick="resetClient()" style="background: var(--text); margin-top:10px;">ACKNOWLEDGE &
                 RESET</button>
@@ -255,6 +256,10 @@
             const file = document.getElementById('pImage').files[0];
             const btn = document.getElementById('submitBtn');
 
+            // EXACT FIX: Extracts the text from the highlighted symptom chips
+            const activeChips = document.querySelectorAll('.chip.active');
+            const symptoms = Array.from(activeChips).map(c => c.innerText).join(', ');
+
             if (!name || !temp || !spo2 || !file) { alert("ERR_MISSING_DATA: Name, Temp, SpO2, and Image required."); return; }
 
             btn.disabled = true;
@@ -262,12 +267,20 @@
             const startTime = performance.now();
 
             try {
-                // Tx 1: Vitals (Now sending both)
+                // Tx 1: Sending all vitals + symptoms
                 const pRes = await fetch(`${API_URL}/spo2`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, phone, location, temperature: parseFloat(temp), spo2_reading: parseInt(spo2) })
+                    body: JSON.stringify({
+                        name,
+                        phone,
+                        location,
+                        temperature: parseFloat(temp),
+                        spo2_reading: parseInt(spo2),
+                        symptoms
+                    })
                 });
-                if (!pRes.ok) throw new Error("ERR_DB_WRITE");
+
+                if (!pRes.ok) throw new Error("ERR_DB_WRITE: Is your backend running and database reset?");
                 const pData = await pRes.json();
 
                 // Tx 2: Image Payload
@@ -276,7 +289,7 @@
                 fd.append('patient_id', pData.patient.id);
 
                 const tRes = await fetch(`${API_URL}/test`, { method: 'POST', body: fd });
-                if (!tRes.ok) throw new Error("ERR_INFERENCE_FAIL");
+                if (!tRes.ok) throw new Error("ERR_INFERENCE_FAIL: Check if Python app.py is running on port 5000");
                 const tData = await tRes.json();
 
                 const endTime = performance.now();
@@ -289,10 +302,13 @@
 
                 const classEl = document.getElementById('resClass');
                 classEl.innerText = tData.result;
-                classEl.className = tData.result === 'positive' ? 'pos' : 'neg';
+
+                // EXACT FIX: Make it red if it says "positive" OR "Presumptive Positive"
+                classEl.className = tData.result.toLowerCase().includes('positive') ? 'pos' : 'neg';
 
                 document.getElementById('resConf').innerText = tData.confidence + '%';
-                document.getElementById('resStrain').innerText = tData.species || 'N/A';
+                // Show the reasoning so we know if the Clinical Engine triggered
+                document.getElementById('resReason').innerText = tData.reasoning || "N/A";
 
             } catch (err) { alert(err.message); }
             finally { btn.disabled = false; btn.innerText = "EXECUTE INFERENCE"; }

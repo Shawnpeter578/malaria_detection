@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ParaScope Field Client v1.3</title>
+    <title>ParaScope Field Client v2.0</title>
     <style>
         :root {
             --bg: #f4f4f5;
@@ -104,7 +104,6 @@
             gap: 6px;
         }
 
-        /* Notice the 'Fever' and 'Chills' exactly match what the Node backend is looking for */
         .chip {
             padding: 4px 10px;
             border: 1px solid var(--border);
@@ -175,6 +174,28 @@
             color: #16a34a;
             font-weight: bold;
         }
+
+        #passportStatus {
+            font-size: 11px;
+            color: var(--accent);
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: none;
+        }
+
+        .history-list {
+            list-style: none;
+            padding: 0;
+            margin: 10px 0 0 0;
+            font-size: 12px;
+        }
+
+        .history-list li {
+            padding: 6px 0;
+            border-bottom: 1px dashed var(--border);
+            display: flex;
+            justify-content: space-between;
+        }
     </style>
 </head>
 
@@ -182,34 +203,28 @@
     <div class="container">
         <header>
             <h1>ParaScope [Node]</h1>
-            <div class="telemetry">
-                STATUS: <span style="color:#16a34a">ONLINE</span><br>
-                LATENCY: <span id="pingVal">12ms</span>
-            </div>
+            <div class="telemetry">STATUS: <span style="color:#16a34a">ONLINE</span></div>
         </header>
 
         <div id="formView">
             <fieldset>
                 <legend>Patient Demographics</legend>
-                <label>Legal Name</label>
-                <input type="text" id="pName" placeholder="Enter name">
+                <label>Contact (Phone) - *Enter first for Auto-Lookup*</label>
+                <input type="number" id="pPhone" placeholder="10-digit number" onblur="lookupPatient()">
+
+                <div id="passportStatus">✓ Returning Patient Found</div>
+
                 <div class="grid-2">
-                    <div><label>Contact (Phone)</label><input type="number" id="pPhone" placeholder="10-digit"></div>
+                    <div><label>Legal Name</label><input type="text" id="pName" placeholder="Enter name"></div>
                     <div><label>Zone / Village</label><input type="text" id="pLoc" placeholder="Location"></div>
                 </div>
             </fieldset>
 
             <fieldset>
-                <legend>Clinical Vitals</legend>
+                <legend>Clinical Vitals (Today)</legend>
                 <div class="grid-2">
-                    <div>
-                        <label>Core Temp (°F)</label>
-                        <input type="number" id="pTemp" placeholder="101.5">
-                    </div>
-                    <div>
-                        <label>Blood O2 (SpO2 %)</label>
-                        <input type="number" id="pSpo2" placeholder="98">
-                    </div>
+                    <div><label>Core Temp (°F)</label><input type="number" id="pTemp" placeholder="101.5"></div>
+                    <div><label>Blood O2 (SpO2 %)</label><input type="number" id="pSpo2" placeholder="98"></div>
                 </div>
                 <label style="margin-top: 5px;">Symptom Flags</label>
                 <div class="chip-group">
@@ -229,15 +244,21 @@
 
         <div id="resultView" class="hidden">
             <fieldset class="result-box">
-                <legend>Inference Complete</legend>
-                <div class="result-row"><span>Patient UUID:</span> <span id="resId"></span></div>
-                <div class="result-row"><span>Inference Time:</span> <span id="resTime"></span></div>
+                <legend>Current Visit Result</legend>
                 <div class="result-row"><span>AI Classification:</span> <span id="resClass"
                         style="text-transform: uppercase;"></span></div>
                 <div class="result-row"><span>Confidence:</span> <span id="resConf"></span></div>
-                <div class="result-row"><span>Logic Path:</span> <span id="resReason"></span></div>
+                <div class="result-row"><span>Logic Path:</span> <span id="resReason"
+                        style="text-align: right; max-width: 60%;"></span></div>
             </fieldset>
-            <button onclick="resetClient()" style="background: var(--text); margin-top:10px;">ACKNOWLEDGE &
+
+            <fieldset class="result-box" style="margin-top: 15px; background: white;">
+                <legend>Digital Medical Passport (History)</legend>
+                <ul class="history-list" id="historyList">
+                </ul>
+            </fieldset>
+
+            <button onclick="resetClient()" style="background: var(--text); margin-top:15px;">ACKNOWLEDGE &
                 RESET</button>
         </div>
     </div>
@@ -245,7 +266,26 @@
     <script>
         const API_URL = 'http://localhost:3000/api/malaria';
 
-        setInterval(() => { document.getElementById('pingVal').innerText = Math.floor(Math.random() * 5 + 10) + 'ms'; }, 2000);
+        // THE AUTO-LOOKUP ENGINE
+        async function lookupPatient() {
+            const phone = document.getElementById('pPhone').value;
+            if (phone.length < 5) return; // Wait till they type a real number
+
+            try {
+                const res = await fetch(`${API_URL}/patient/${phone}`);
+                const data = await res.json();
+
+                if (data.found) {
+                    document.getElementById('pName').value = data.patient.name;
+                    document.getElementById('pLoc').value = data.patient.location;
+                    const status = document.getElementById('passportStatus');
+                    status.innerText = `✓ Digital Passport Linked (${data.history.length} Past Visits)`;
+                    status.style.display = 'block';
+                } else {
+                    document.getElementById('passportStatus').style.display = 'none';
+                }
+            } catch (err) { console.error("Lookup failed", err); }
+        }
 
         async function submitPayload() {
             const name = document.getElementById('pName').value;
@@ -256,59 +296,50 @@
             const file = document.getElementById('pImage').files[0];
             const btn = document.getElementById('submitBtn');
 
-            // EXACT FIX: Extracts the text from the highlighted symptom chips
             const activeChips = document.querySelectorAll('.chip.active');
             const symptoms = Array.from(activeChips).map(c => c.innerText).join(', ');
 
-            if (!name || !temp || !spo2 || !file) { alert("ERR_MISSING_DATA: Name, Temp, SpO2, and Image required."); return; }
+            if (!phone || !file) { alert("Phone and Image required."); return; }
 
             btn.disabled = true;
-            btn.innerText = "PROCESSING (TX/RX)...";
-            const startTime = performance.now();
+            btn.innerText = "UPLOADING PASSPORT DATA...";
 
             try {
-                // Tx 1: Sending all vitals + symptoms
-                const pRes = await fetch(`${API_URL}/spo2`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name,
-                        phone,
-                        location,
-                        temperature: parseFloat(temp),
-                        spo2_reading: parseInt(spo2),
-                        symptoms
-                    })
-                });
-
-                if (!pRes.ok) throw new Error("ERR_DB_WRITE: Is your backend running and database reset?");
-                const pData = await pRes.json();
-
-                // Tx 2: Image Payload
+                // ONE SINGLE PAYLOAD - Form Data handles text and files perfectly together
                 const fd = new FormData();
+                fd.append('name', name);
+                fd.append('phone', phone);
+                fd.append('location', location);
+                fd.append('temperature', temp);
+                fd.append('spo2_reading', spo2);
+                fd.append('symptoms', symptoms);
                 fd.append('smearImage', file);
-                fd.append('patient_id', pData.patient.id);
 
-                const tRes = await fetch(`${API_URL}/test`, { method: 'POST', body: fd });
-                if (!tRes.ok) throw new Error("ERR_INFERENCE_FAIL: Check if Python app.py is running on port 5000");
-                const tData = await tRes.json();
+                const res = await fetch(`${API_URL}/visit`, { method: 'POST', body: fd });
+                if (!res.ok) throw new Error("Server error - is Python running?");
+                const data = await res.json();
 
-                const endTime = performance.now();
-
-                // Bind UI
+                // Build the UI
                 document.getElementById('formView').classList.add('hidden');
                 document.getElementById('resultView').classList.remove('hidden');
-                document.getElementById('resId').innerText = pData.patient.id.substring(0, 8);
-                document.getElementById('resTime').innerText = (endTime - startTime).toFixed(0) + ' ms';
 
                 const classEl = document.getElementById('resClass');
-                classEl.innerText = tData.result;
+                classEl.innerText = data.result;
+                classEl.className = data.result.toLowerCase().includes('positive') ? 'pos' : 'neg';
 
-                // EXACT FIX: Make it red if it says "positive" OR "Presumptive Positive"
-                classEl.className = tData.result.toLowerCase().includes('positive') ? 'pos' : 'neg';
+                document.getElementById('resConf').innerText = data.confidence + '%';
+                document.getElementById('resReason').innerText = data.reason;
 
-                document.getElementById('resConf').innerText = tData.confidence + '%';
-                // Show the reasoning so we know if the Clinical Engine triggered
-                document.getElementById('resReason').innerText = tData.reasoning || "N/A";
+                // RENDER PASSPORT HISTORY
+                const historyList = document.getElementById('historyList');
+                historyList.innerHTML = data.history.map((visit, index) => {
+                    const date = new Date(visit.created_at).toLocaleDateString();
+                    const isPos = visit.result.toLowerCase().includes('positive');
+                    return `<li>
+                        <span><strong>Visit ${data.history.length - index}</strong> (${date})</span>
+                        <span class="${isPos ? 'pos' : 'neg'}">${visit.result}</span>
+                    </li>`;
+                }).join('');
 
             } catch (err) { alert(err.message); }
             finally { btn.disabled = false; btn.innerText = "EXECUTE INFERENCE"; }
@@ -317,9 +348,11 @@
         function resetClient() {
             document.getElementById('pName').value = '';
             document.getElementById('pPhone').value = '';
+            document.getElementById('pLoc').value = '';
             document.getElementById('pTemp').value = '';
             document.getElementById('pSpo2').value = '';
             document.getElementById('pImage').value = '';
+            document.getElementById('passportStatus').style.display = 'none';
             document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
             document.getElementById('resultView').classList.add('hidden');
             document.getElementById('formView').classList.remove('hidden');

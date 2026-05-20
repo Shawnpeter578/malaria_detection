@@ -13,6 +13,7 @@
             --accent: #3b82f6;
             --danger: #ef4444;
             --border: #27272a;
+            --muted: #a1a1aa;
         }
 
         body {
@@ -68,7 +69,7 @@
 
         .kpi span {
             display: block;
-            color: #a1a1aa;
+            color: var(--muted);
             font-size: 10px;
             text-transform: uppercase;
             margin-bottom: 5px;
@@ -80,25 +81,75 @@
             font-variant-numeric: tabular-nums;
         }
 
+        /* Search Bar */
+        .search-bar {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 12px;
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            margin-bottom: 15px;
+            font-family: inherit;
+            text-transform: uppercase;
+        }
+
+        .search-bar:focus {
+            outline: 1px solid var(--accent);
+        }
+
+        /* HTML5 Native Accordion Cards */
+        details {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            margin-bottom: 8px;
+            border-radius: 2px;
+        }
+
+        summary {
+            padding: 12px 15px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            list-style: none;
+            font-weight: bold;
+            background: #121214;
+        }
+
+        summary::-webkit-details-marker {
+            display: none;
+        }
+
+        summary:hover {
+            background: #27272a;
+        }
+
+        details[open] summary {
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+        }
+
+        .details-content {
+            padding: 0 15px 15px 15px;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
-            background: var(--surface);
-            border: 1px solid var(--border);
+            margin-top: 10px;
         }
 
         th,
         td {
-            padding: 10px;
+            padding: 8px 10px;
             text-align: left;
             border-bottom: 1px solid var(--border);
         }
 
         th {
-            color: #a1a1aa;
+            color: var(--muted);
             font-size: 10px;
             text-transform: uppercase;
-            background: #27272a;
         }
 
         td {
@@ -108,7 +159,7 @@
         .badge {
             padding: 2px 6px;
             border-radius: 2px;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: bold;
             text-transform: uppercase;
         }
@@ -124,69 +175,38 @@
             color: #86efac;
             border: 1px solid #22c55e;
         }
-
-        .img-preview {
-            width: 40px;
-            height: 40px;
-            object-fit: cover;
-            border: 1px solid #52525b;
-            filter: grayscale(100%);
-        }
-
-        .img-preview:hover {
-            filter: none;
-            transform: scale(3);
-            position: absolute;
-            z-index: 100;
-        }
     </style>
 </head>
 
 <body>
 
     <div class="header">
-        <h1>ParaScope // District Hub</h1>
-        <div><span class="pulse"></span> DAEMON SYNC: ACTIVE (5000ms)</div>
+        <h1>ParaScope // District Registry</h1>
+        <div><span class="pulse"></span> DB SYNC: <span id="syncStatus">ACTIVE</span></div>
     </div>
 
     <div class="kpi-grid">
-        <div class="kpi"><span>Data Rows (Patients)</span><strong id="kpi-pat">--</strong></div>
-        <div class="kpi"><span>Inferences Executed</span><strong id="kpi-inf">--</strong></div>
+        <div class="kpi"><span>Registered Patients</span><strong id="kpi-pat">--</strong></div>
+        <div class="kpi"><span>Total Screenings</span><strong id="kpi-inf">--</strong></div>
         <div class="kpi warn"><span>Positive Detections</span><strong id="kpi-pos"
                 style="color:var(--danger)">--</strong></div>
         <div class="kpi warn"><span>Positivity Rate</span><strong id="kpi-rate">--</strong></div>
     </div>
 
-    <table>
-        <thead>
-            <tr>
-                <th>TS (UTC)</th>
-                <th>UUID</th>
-                <th>Image</th>
-                <th>Loc/Node</th>
-                <th>Vitals (Temp)</th>
-                <th>Classification</th>
-                <th>Conf</th>
-            </tr>
-        </thead>
-        <tbody id="logTable">
-            <tr>
-                <td colspan="7" style="text-align: center; color: #71717a;">INITIATING DB READ...</td>
-            </tr>
-        </tbody>
-    </table>
+    <input type="text" id="searchBox" class="search-bar"
+        placeholder="> QUERY PATIENT INDEX (BY NAME OR PHONE NUMBER)..." onkeyup="filterPatients()">
+
+    <div id="patientRegistry">
+        <div style="text-align: center; color: var(--muted); padding: 20px;">FETCHING SECURE DATA...</div>
+    </div>
 
     <script>
         const API_URL = 'http://localhost:3000';
-        let abortController = null;
+        let globalData = { patients: [], visits: [] };
 
         async function pollDatabase() {
-            // Cancel previous fetch if it's hanging (Pro-level memory management)
-            if (abortController) abortController.abort();
-            abortController = new AbortController();
-
             try {
-                const res = await fetch(`${API_URL}/api/malaria/dashboard`, { signal: abortController.signal });
+                const res = await fetch(`${API_URL}/api/malaria/dashboard`);
                 const data = await res.json();
 
                 // Update KPIs
@@ -195,35 +215,80 @@
                 document.getElementById('kpi-pos').innerText = data.positive_cases;
                 document.getElementById('kpi-rate').innerText = data.positivity_rate;
 
-                // Update Logs
-                const tbody = document.getElementById('logTable');
-                if (data.recent_tests.length === 0) return;
+                // Cache data in memory for instant searching
+                globalData.patients = data.patients;
+                globalData.visits = data.visits;
 
-                tbody.innerHTML = data.recent_tests.map(t => {
-                    const imgSrc = t.image_url ? `${API_URL}${t.image_url}` : '';
-                    const imgTag = imgSrc ? `<img src="${imgSrc}" class="img-preview">` : 'NULL';
-
-                    return `
-<tr>
-    <td style="color:#a1a1aa">${new Date(t.created_at).toISOString().split('T')[1].split('.')[0]}</td>
-    <td style="color:#3b82f6">${t.patient_id.substring(0, 8)}</td>
-    <td>${imgTag}</td>
-    <td>${t.location}</td>
-    <td>
-        <div style="color: ${t.temperature > 100 ? '#fca5a5' : '#e4e4e7'}">T: ${t.temperature}°F</div>
-        <div style="color: ${t.spo2_reading < 94 ? '#fca5a5' : '#a1a1aa'}">O2: ${t.spo2_reading}%</div>
-    </td>
-   <td><span class="badge ${t.result.toLowerCase().includes('positive') ? 'pos' : 'neg'}">${t.result}</span></td>
-    <td>${t.confidence}%</td>
-</tr>
-`
-                }).join('');
-
-            } catch (err) {
-                if (err.name !== 'AbortError') console.error('Poll failed:', err);
-            }
+                // Only re-render if the search box is currently empty (so we don't interrupt a user searching)
+                if (document.getElementById('searchBox').value === '') {
+                    renderPatients(globalData.patients);
+                }
+            } catch (err) { console.error('Poll failed:', err); }
         }
 
+        // Renders the HTML5 Accordion Cards
+        function renderPatients(patients) {
+            const container = document.getElementById('patientRegistry');
+
+            if (patients.length === 0) {
+                container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--muted)">NO RECORDS FOUND</div>`;
+                return;
+            }
+
+            container.innerHTML = patients.map(p => {
+                // Find all visits for this specific patient
+                const pVisits = globalData.visits.filter(v => v.patient_id === p.id);
+
+                // If they have ever tested positive, flag the card in Red
+                const hasPos = pVisits.some(v => v.result.toLowerCase().includes('positive'));
+                const statusBadge = hasPos ? `<span style="color:var(--danger)">[ALERT: POSITIVE HISTORY]</span>` : `<span style="color:#22c55e">[CLEAR]</span>`;
+
+                // Build the table rows for their history
+                const visitRows = pVisits.map(v => `
+                    <tr>
+                        <td style="color:var(--muted)">${new Date(v.created_at).toISOString().split('T')[0]}</td>
+                        <td>T: ${v.temperature}°F | O2: ${v.spo2_reading}%</td>
+                        <td style="color:var(--muted)">${v.symptoms || '--'}</td>
+                        <td><span class="badge ${v.result.toLowerCase().includes('positive') ? 'pos' : 'neg'}">${v.result}</span></td>
+                        <td style="color:var(--muted); font-size:10px;">${v.reasoning}</td>
+                    </tr>
+                `).join('');
+
+                return `
+                <details>
+                    <summary>
+                        <span><span style="color:var(--accent)">UUID: ${p.id.substring(0, 6)}</span> | ${p.name.toUpperCase()} | PH: ${p.phone}</span>
+                        <span>VISITS: ${pVisits.length} &nbsp; ${statusBadge}</span>
+                    </summary>
+                    <div class="details-content">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date (UTC)</th>
+                                    <th>Vitals</th>
+                                    <th>Symptoms</th>
+                                    <th>Classification</th>
+                                    <th>Engine Logic Path</th>
+                                </tr>
+                            </thead>
+                            <tbody>${visitRows || '<tr><td colspan="5" style="text-align:center;">No visit records found.</td></tr>'}</tbody>
+                        </table>
+                    </div>
+                </details>
+                `;
+            }).join('');
+        }
+
+        // Zero-Latency Client-Side Search
+        function filterPatients() {
+            const query = document.getElementById('searchBox').value.toLowerCase();
+            const filtered = globalData.patients.filter(p =>
+                p.name.toLowerCase().includes(query) || p.phone.includes(query)
+            );
+            renderPatients(filtered);
+        }
+
+        // Poll every 5 seconds to keep data fresh
         setInterval(pollDatabase, 5000);
         pollDatabase();
     </script>

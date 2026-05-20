@@ -2,16 +2,17 @@ const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 
-// This tells Multer to temporarily save incoming images into an 'uploads' folder
 const upload = multer({ dest: "uploads/" }); 
 
-const { submitSpO2, getAlerts, submitTest, getDashboard } = require("../controllers/malariaController");
+// Import the updated controller functions
+const { lookupPatient, submitVisit, getDashboard } = require("../controllers/malariaController");
 
-router.post("/spo2", submitSpO2);
-router.get("/alerts", getAlerts);
+// New route to fetch patient history by phone number
+router.get("/patient/:phone", lookupPatient);
 
-// We add upload.single("smearImage") exactly here to catch the file!
-router.post("/test", upload.single("smearImage"), submitTest); 
+// One single route handles both the text data and the image at the same time
+router.post("/visit", upload.single("smearImage"), submitVisit); 
+
 router.get("/dashboard", getDashboard);
 
 module.exports = router;

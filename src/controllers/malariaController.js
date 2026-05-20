@@ -8,26 +8,24 @@ const FormData = require("form-data");
 const dbPath = path.join(__dirname, "../../malaria.db");
 const db = new sqlite3.Database(dbPath);
 
-// ADDED 'symptoms' column
+// SCHEMA UPDATED FOR MEDICAL PASSPORT
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS patients (
     id TEXT PRIMARY KEY,
+    phone TEXT UNIQUE,
     name TEXT,
-    phone TEXT,
     location TEXT,
-    spo2_reading INTEGER,
-    temperature REAL,
-    symptoms TEXT,
-    alert_sent INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
-  db.run(`CREATE TABLE IF NOT EXISTS tests (
+  db.run(`CREATE TABLE IF NOT EXISTS visits (
     id TEXT PRIMARY KEY,
     patient_id TEXT,
+    temperature REAL,
+    spo2_reading INTEGER,
+    symptoms TEXT,
     result TEXT,
     confidence INTEGER,
-    species TEXT,
     reasoning TEXT,
     image_url TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -42,110 +40,99 @@ const dbAll = (query, params) => new Promise((resolve, reject) => {
   db.all(query, params, (err, rows) => { if (err) reject(err); else resolve(rows); });
 });
 
-const submitSpO2 = async (req, res) => {
-  const { name, phone, location, spo2_reading, temperature, symptoms } = req.body;
-  if (!name || spo2_reading === undefined || temperature === undefined) return res.status(400).json({ error: "Missing data" });
-
-  const alert_sent = (spo2_reading < 94 || temperature > 100) ? 1 : 0;
-  const id = crypto.randomUUID();
-
+// 1. LOOKUP PATIENT (The Passport Fetcher)
+const lookupPatient = async (req, res) => {
   try {
-    await dbRun(
-      `INSERT INTO patients (id, name, phone, location, spo2_reading, temperature, symptoms, alert_sent) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, name, phone, location, spo2_reading, temperature, symptoms || "", alert_sent]
-    );
-    const rows = await dbAll(`SELECT * FROM patients WHERE id = ?`, [id]);
-    res.status(201).json({ patient: rows[0], alert_sent: !!alert_sent });
-  } catch (error) { res.status(500).json({ error: error.message }); }
-};
-
-const getAlerts = async (req, res) => {
-  try {
-    const rows = await dbAll(`SELECT * FROM patients WHERE alert_sent = 1 ORDER BY created_at DESC`);
-    res.json(rows);
-  } catch (error) { res.status(500).json({ error: error.message }); }
-};
-
-const submitTest = async (req, res) => {
-  const patient_id = req.body.patient_id;
-  const imageFile = req.file; 
-  if (!patient_id || !imageFile) return res.status(400).json({ error: "patient_id and image required" });
-
-  const id = crypto.randomUUID();
-  const image_url = `/uploads/${imageFile.filename}`;
-
-  try {
-    const formData = new FormData();
-    formData.append("image", fs.createReadStream(imageFile.path));
-
-    const aiResponse = await axios.post("http://127.0.0.1:5000/predict", formData, { headers: formData.getHeaders() });
+    const phone = req.params.phone;
+    const patients = await dbAll(`SELECT * FROM patients WHERE phone = ?`, [phone]);
     
-    // 1. Primary AI Inference
-    let { result, confidence, species } = aiResponse.data;
+    if (patients.length === 0) return res.json({ found: false });
+
+    const patient = patients[0];
+    const visits = await dbAll(`SELECT * FROM visits WHERE patient_id = ? ORDER BY created_at DESC`, [patient.id]);
+    
+    res.json({ found: true, patient, history: visits });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+};
+
+// 2. ONE-SHOT SUBMIT (Handles Demographics, Vitals, and AI all at once)
+const submitVisit = async (req, res) => {
+  const { name, phone, location, temperature, spo2_reading, symptoms } = req.body;
+  const imageFile = req.file; 
+
+  if (!phone || !imageFile) return res.status(400).json({ error: "Phone and image required" });
+
+  try {
+    // --- PASSPORT LOGIC: Find or Create Patient ---
+    let patient_id;
+    const existing = await dbAll(`SELECT id FROM patients WHERE phone = ?`, [phone]);
+    
+    if (existing.length > 0) {
+      patient_id = existing[0].id; // Returning patient
+    } else {
+      patient_id = crypto.randomUUID(); // New patient
+      await dbRun(`INSERT INTO patients (id, phone, name, location) VALUES (?, ?, ?, ?)`, [patient_id, phone, name, location]);
+    }
+
+    // --- AI INFERENCE ---
+    const image_url = `/uploads/${imageFile.filename}`;
+    const pyFormData = new FormData();
+    pyFormData.append("image", fs.createReadStream(imageFile.path));
+
+    const aiResponse = await axios.post("http://127.0.0.1:5000/predict", pyFormData, { headers: pyFormData.getHeaders() });
+    
+    let { result, confidence } = aiResponse.data;
     let reasoning = "Image-based AI Inference";
 
-    // 2. Secondary Clinical Risk Fallback
-    console.log(`\n--- AI Returned: ${result.toUpperCase()} ---`);
+    // --- CLINICAL ENGINE ---
     if (result === "negative") {
-      const pRows = await dbAll(`SELECT * FROM patients WHERE id = ?`, [patient_id]);
-      if (pRows.length > 0) {
-        const p = pRows[0];
-        let riskScore = 0;
-        
-        // Force Javascript to treat these as numbers, not text
-        const t = Number(p.temperature);
-        const o2 = Number(p.spo2_reading);
-        const symp = p.symptoms || ""; // Fallback if frontend forgot to send symptoms
+      let riskScore = 0;
+      const t = Number(temperature); const o2 = Number(spo2_reading); const symp = symptoms || "";
+      if (t > 100.5) riskScore += 2;
+      if (o2 < 94) riskScore += 3;
+      if (symp.includes("Fever")) riskScore += 3;
+      if (symp.includes("Chills")) riskScore += 2;
 
-        console.log(`Analyzing Vitals -> Temp: ${t}, SpO2: ${o2}, Symptoms: [${symp}]`);
-
-        // WHO Scoring Logic
-        if (t > 100.5) riskScore += 2;
-        if (o2 < 94) riskScore += 3;
-        if (symp.includes("Fever")) riskScore += 3;
-        if (symp.includes("Chills")) riskScore += 2;
-
-        console.log(`Final Calculated Risk Score: ${riskScore}/10`);
-
-        // If high risk, OVERRIDE the AI
-        if (riskScore >= 5) {
-          result = "Presumptive Positive";
-          confidence = 85; 
-          species = "Pending Lab Confirmation";
-          reasoning = `Clinical Override (Risk Score: ${riskScore}/10)`;
-          console.log(`⚠️ ACTION: AI Overruled by Clinical Engine!`);
-        } else {
-          console.log(`✅ ACTION: Risk too low to override AI.`);
-        }
+      if (riskScore >= 5) {
+        result = "Presumptive Positive";
+        confidence = 85; 
+        reasoning = `Clinical Override (Risk Score: ${riskScore}/10)`;
       }
     }
 
+    // --- SAVE THE VISIT RECORD ---
+    const visit_id = crypto.randomUUID();
     await dbRun(
-      `INSERT INTO tests (id, patient_id, result, confidence, species, reasoning, image_url) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [id, patient_id, result, confidence, species, reasoning, image_url]
+      `INSERT INTO visits (id, patient_id, temperature, spo2_reading, symptoms, result, confidence, reasoning, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [visit_id, patient_id, temperature, spo2_reading, symptoms, result, confidence, reasoning, image_url]
     );
 
-    const rows = await dbAll(`SELECT * FROM tests WHERE id = ?`, [id]);
-    res.status(201).json(rows[0]);
+    // Fetch full history to send back to ASHA screen
+    const fullHistory = await dbAll(`SELECT * FROM visits WHERE patient_id = ? ORDER BY created_at DESC`, [patient_id]);
+    res.status(201).json({ result, confidence, reasoning, history: fullHistory });
 
-  } catch (error) { res.status(500).json({ error: "ML Server Error" }); }
+  } catch (error) { res.status(500).json({ error: "Server Error: " + error.message }); }
 };
+
 const getDashboard = async (req, res) => {
   try {
-    const patients = await dbAll(`SELECT * FROM patients`);
-    const tests = await dbAll(`SELECT * FROM tests`);
-    // Count both "positive" and "Presumptive Positive"
-    const positive = tests.filter(t => t.result.toLowerCase().includes("positive")).length;
-    const total = tests.length;
-    const positivity_rate = total > 0 ? ((positive / total) * 100).toFixed(1) : 0;
+    // 1. Fetch all patients and all visits independently
+    const patients = await dbAll(`SELECT * FROM patients ORDER BY created_at DESC`);
+    const visits = await dbAll(`SELECT * FROM visits ORDER BY created_at DESC`);
+    
+    // 2. Calculate KPIs
+    const positive = visits.filter(v => v.result.toLowerCase().includes("positive")).length;
+    const rate = visits.length > 0 ? ((positive / visits.length) * 100).toFixed(1) : 0;
 
-    const recent_tests = await dbAll(`
-      SELECT t.*, p.name, p.location, p.spo2_reading, p.temperature 
-      FROM tests t JOIN patients p ON t.patient_id = p.id ORDER BY t.created_at DESC LIMIT 10
-    `);
-
-    res.json({ total_patients: patients.length, total_tests: total, positive_cases: positive, positivity_rate: `${positivity_rate}%`, recent_tests });
+    // 3. Send the raw data arrays directly to the frontend for client-side rendering
+    res.json({ 
+      total_patients: patients.length, 
+      total_tests: visits.length, 
+      positive_cases: positive, 
+      positivity_rate: `${rate}%`, 
+      patients: patients, // The frontend will use this to build the cards
+      visits: visits      // The frontend will nest these inside the cards
+    });
   } catch (error) { res.status(500).json({ error: error.message }); }
 };
-
-module.exports = { submitSpO2, getAlerts, submitTest, getDashboard };
+module.exports = { lookupPatient, submitVisit, getDashboard };

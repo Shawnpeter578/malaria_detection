@@ -10,7 +10,7 @@ app = Flask(__name__)
 # 1. Load the AI Model
 print("Loading ML model (this might take a few seconds)...")
 try:
-    model = tf.keras.models.load_model("best_malaria_model.keras")
+    model = tf.keras.models.load_model("best_malaria_model.keras", compile=False)
     print("✅ Model loaded successfully!")
 except Exception as e:
     print(f"❌ Failed to load model: {e}")
